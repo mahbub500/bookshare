@@ -128,4 +128,4 @@ All endpoints are under: `/wp-json/bookshare/v1/`
 ## 💡 How Unique Codes Work
 
 Each book gets a unique code like `DUNE3F9A` (title prefix + random suffix).  
-Any reader can search this code to find all community members who have that book publicly listed.
+Any reader can search this code to find all community members who have that book publicly listed.# bookshare
