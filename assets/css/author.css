@@ -1,0 +1,74 @@
+.bs-metabox-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 4px 0;
+}
+.bs-meta-row  { display: flex; flex-direction: column; gap: 5px; }
+.bs-meta-full { grid-column: 1 / -1; }
+.bs-meta-label {
+    font-size: 12px; font-weight: 700; color: #1E1E2E;
+    text-transform: uppercase; letter-spacing: 0.4px;
+}
+.bs-meta-input {
+    padding: 8px 12px;
+    border: 1.5px solid #E5E7F0;
+    border-radius: 7px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #F8F9FF;
+    transition: border-color .15s, box-shadow .15s;
+    width: 100%;
+}
+.bs-meta-input:focus {
+    outline: none;
+    border-color: #5B5EDE;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(91,94,222,.1);
+}
+.bs-meta-textarea {
+    padding: 8px 12px;
+    border: 1.5px solid #E5E7F0;
+    border-radius: 7px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #F8F9FF;
+    resize: vertical;
+    width: 100%;
+}
+.bs-meta-textarea:focus {
+    outline: none;
+    border-color: #5B5EDE;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(91,94,222,.1);
+}
+#bs_author_details .inside,
+#bs_publisher_details .inside,
+#bs_author_social .inside,
+#bs_publisher_contact .inside { padding: 16px; }
+#bs_author_books .inside,
+#bs_publisher_books .inside   { padding: 0; }
+.bs-cpt-book-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.bs-cpt-book-table th {
+    text-align: left; padding: 10px 14px;
+    background: #F8F9FF; border-bottom: 2px solid #E5E7F0;
+    font-size: 11px; text-transform: uppercase;
+    font-weight: 700; color: #6B7280; letter-spacing: .5px;
+}
+.bs-cpt-book-table td {
+    padding: 10px 14px; border-bottom: 1px solid #E5E7F0; vertical-align: middle;
+}
+.bs-cpt-book-table tr:last-child td { border-bottom: none; }
+.bs-cpt-book-table tr:hover td     { background: #EEF0FF; }
+code.bs-code {
+    background: #EEF0FF; color: #5B5EDE;
+    padding: 2px 7px; border-radius: 5px;
+    font-weight: 700; letter-spacing: 1px; font-size: 12px;
+}
+.column-bs_photo,
+.column-bs_logo        { width: 60px; }
+.column-bs_books,
+.column-bs_pub_books   { width: 60px; text-align: center; }
+.column-bs_founded     { width: 80px; }

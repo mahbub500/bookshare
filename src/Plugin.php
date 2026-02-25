@@ -31,7 +31,8 @@ final class Plugin {
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
 
         // Custom Post Types for Authors & Publishers
-        PostTypes::register();
+        Cpt\PostTypes::register();
+        Cpt\BookCpt::register();
     }
 
     public function register_shortcodes(): void {
@@ -79,28 +80,56 @@ final class Plugin {
     }
 
     public function enqueue_admin_assets( string $hook ): void {
-        if ( strpos( $hook, 'bookshare' ) === false ) return;
 
-        wp_enqueue_style(
-            'bookshare-admin-css',
-            BS_URL . 'assets/css/bookshare-admin.css',
-            [],
-            BS_VERSION
-        );
-        wp_enqueue_script(
-            'bookshare-admin-js',
-            BS_URL . 'assets/js/bookshare-admin.js',
-            [ 'jquery' ],
-            BS_VERSION,
-            true
-        );
-        wp_localize_script( 'bookshare-admin-js', 'BSAdmin', [
-            'root'  => esc_url_raw( rest_url( 'bookshare/v1/' ) ),
-            'nonce' => wp_create_nonce( 'wp_rest' ),
-            'ajax_url' => admin_url( 'admin-ajax.php' ),
-        ] );
+        $screen = get_current_screen();
+        if ( ! $screen ) {
+            return;
+        }        
+
+        /*
+         * Load CSS for Author & Publisher CPT
+         */
+        if ( in_array( $screen->post_type, [ 'bs_author', 'bs_publisher' ], true ) ) {
+
+            wp_enqueue_style(
+                'bookshare-authors-publisher-css',
+                BS_URL . 'assets/css/author.css',
+                [],
+                BS_VERSION
+            );
+        }
+
+        /*
+         * Load assets for BookShare admin pages
+         */
+        if ( strpos( $hook, 'bookshare' ) !== false ) {
+
+            wp_enqueue_style(
+                'bookshare-admin-css',
+                BS_URL . 'assets/css/bookshare-admin.css',
+                [],
+                BS_VERSION
+            );
+
+            wp_enqueue_script(
+                'bookshare-admin-js',
+                BS_URL . 'assets/js/bookshare-admin.js',
+                [ 'jquery' ],
+                BS_VERSION,
+                true
+            );
+
+            wp_localize_script(
+                'bookshare-admin-js',
+                'BSAdmin',
+                [
+                    'root'     => esc_url_raw( rest_url( 'bookshare/v1/' ) ),
+                    'nonce'    => wp_create_nonce( 'wp_rest' ),
+                    'ajax_url' => admin_url( 'admin-ajax.php' ),
+                ]
+            );
+        }
     }
-
     public function register_admin_menu(): void {
         add_menu_page(
             __( 'BookCircle', 'bookshare' ),
