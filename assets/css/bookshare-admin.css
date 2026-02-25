@@ -1,0 +1,188 @@
+/* =====================================================================
+   BookCircle Admin Styles
+   ===================================================================== */
+.bs-admin-wrap {
+    --bs-primary: #5B5EDE;
+    --bs-primary-lt: #EEF0FF;
+    --bs-border: #E5E7F0;
+    --bs-text: #1E1E2E;
+    --bs-muted: #6B7280;
+    --bs-surface: #FFFFFF;
+    --bs-bg: #F8F9FF;
+    --bs-green: #22C55E;
+    --bs-red: #EF4444;
+    --bs-yellow: #F59E0B;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    color: var(--bs-text);
+}
+
+.bs-admin-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 0 16px;
+    border-bottom: 2px solid var(--bs-border);
+    margin-bottom: 24px;
+}
+
+.bs-admin-logo { font-size: 28px; }
+.bs-admin-title { font-size: 24px; font-weight: 800; margin: 0; color: var(--bs-text); }
+.bs-admin-subtitle { font-size: 13px; color: var(--bs-muted); margin: 0; }
+
+/* Stats */
+.bs-stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.bs-stat-card {
+    background: var(--bs-surface);
+    border: 1.5px solid var(--bs-border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.bs-stat-icon { font-size: 32px; }
+.bs-stat-value { font-size: 28px; font-weight: 800; color: var(--bs-primary); line-height: 1; }
+.bs-stat-label { font-size: 12px; color: var(--bs-muted); margin-top: 3px; }
+
+/* Table */
+.bs-admin-card {
+    background: var(--bs-surface);
+    border: 1.5px solid var(--bs-border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.bs-admin-card-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--bs-border);
+    background: var(--bs-bg);
+}
+
+.bs-admin-card-title { font-size: 16px; font-weight: 700; margin: 0; }
+
+.bs-admin-table { width: 100%; border-collapse: collapse; }
+.bs-admin-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--bs-muted);
+    background: var(--bs-bg);
+    border-bottom: 1px solid var(--bs-border);
+}
+.bs-admin-table td {
+    padding: 13px 16px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--bs-border);
+    vertical-align: middle;
+}
+.bs-admin-table tr:last-child td { border-bottom: none; }
+.bs-admin-table tr:hover td { background: var(--bs-primary-lt); }
+.bs-admin-table .bs-book-cover-thumb {
+    width: 36px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+/* Buttons */
+.bs-admin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 16px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    text-decoration: none;
+}
+.bs-admin-btn-primary { background: var(--bs-primary); color: #fff; }
+.bs-admin-btn-primary:hover { background: #4446C2; color:#fff; }
+.bs-admin-btn-danger  { background: var(--bs-red);   color: #fff; }
+.bs-admin-btn-danger:hover  { background: #dc2626; }
+.bs-admin-btn-ghost   { background: transparent; border: 1.5px solid var(--bs-border); color: var(--bs-text); }
+.bs-admin-btn-ghost:hover { background: var(--bs-bg); }
+.bs-admin-btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* Status badges */
+.bs-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 100px; }
+.bs-status-pending   { background: #FEF3C7; color: #92400E; }
+.bs-status-approved  { background: #D1FAE5; color: #065F46; }
+.bs-status-rejected  { background: #FEE2E2; color: #991B1B; }
+.bs-status-returned  { background: #E0E7FF; color: #3730A3; }
+.bs-status-cancelled { background: #F3F4F6; color: #6B7280; }
+
+/* Modal / Drawer */
+.bs-admin-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.bs-admin-modal-overlay.open { display: flex; }
+.bs-admin-modal {
+    background: var(--bs-surface);
+    border-radius: 16px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.bs-admin-modal-header { padding: 20px 24px 0; display: flex; align-items: center; justify-content: space-between; }
+.bs-admin-modal-header h3 { font-size: 18px; font-weight: 700; margin: 0; }
+.bs-admin-modal-close { background: #F3F4F6; border: none; cursor: pointer; font-size: 16px; width: 32px; height: 32px; border-radius: 50%; }
+.bs-admin-modal-body   { padding: 20px 24px; }
+.bs-admin-modal-footer { padding: 0 24px 24px; display: flex; justify-content: flex-end; gap: 10px; }
+
+/* Form */
+.bs-admin-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.bs-admin-form-group { display: flex; flex-direction: column; gap: 5px; }
+.bs-admin-label { font-size: 13px; font-weight: 600; }
+.bs-admin-input, .bs-admin-select, .bs-admin-textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--bs-border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+    background: var(--bs-bg);
+}
+.bs-admin-input:focus, .bs-admin-select:focus, .bs-admin-textarea:focus { border-color: var(--bs-primary); background: #fff; }
+.bs-admin-textarea { resize: vertical; }
+.bs-span-2 { grid-column: span 2; }
+
+/* Settings */
+.bs-settings-section { margin-bottom: 28px; }
+.bs-settings-section h3 { font-size: 16px; font-weight: 700; border-bottom: 2px solid var(--bs-border); padding-bottom: 10px; margin-bottom: 16px; }
+.bs-settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--bs-border); }
+.bs-settings-label { font-size: 14px; font-weight: 500; }
+.bs-settings-desc  { font-size: 12px; color: var(--bs-muted); }
+
+/* Notice / Alert */
+.bs-admin-notice { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+.bs-admin-notice-success { background: #D1FAE5; color: #065F46; }
+.bs-admin-notice-error   { background: #FEE2E2; color: #991B1B; }

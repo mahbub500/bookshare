@@ -1,112 +1,121 @@
 <?php
 namespace BookShare;
 
-use BookShare\PostTypes\BookCPT;
-use BookShare\PostTypes\AuthorCPT;
-use BookShare\PostTypes\PublisherCPT;
-use BookShare\Admin\AdminMenu;
-use BookShare\Admin\BookMetaBox;
-use BookShare\Admin\BookRequestAdmin;
-use BookShare\Controllers\ShortcodeController;
-use BookShare\API\RestAPI;
+defined( 'ABSPATH' ) || exit;
 
-/**
- * Main Plugin Class — Singleton
- */
 final class Plugin {
 
     private static ?Plugin $instance = null;
 
-    private function __construct() {
-        add_action( 'init',                  [ $this, 'register_post_types' ], 5  );
-        add_action( 'init',                  [ $this, 'boot'               ], 10 );
-        add_action( 'wp_head',               [ $this, 'inline_css'         ], 99 );
-        add_action( 'wp_footer',             [ $this, 'inline_js'          ], 20 );
-        add_action( 'admin_enqueue_scripts', [ $this, 'admin_assets'       ]     );
-    }
-
-    public static function instance(): self {
+    public static function instance(): Plugin {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }
         return self::$instance;
     }
 
-    public function register_post_types(): void {
-        ( new BookCPT() )->register();
-        ( new AuthorCPT() )->register();
-        ( new PublisherCPT() )->register();
+    private function __construct() {
+        $this->includes();
+        $this->init_hooks();
     }
 
-    public function boot(): void {
-        AdminMenu::register();
-
-        if ( is_admin() ) {
-            new BookMetaBox();
-            new BookRequestAdmin();
-        }
-
-        new RestAPI();
-        new ShortcodeController();
+    private function includes(): void {
+        // Models, Controllers, API are autoloaded via PSR-4
     }
 
-    /** Output CSS inline in <head> — works regardless of URL/permalink setup */
-    public function inline_css(): void {
-        if ( is_admin() ) return;
-        $file = BS_PATH . 'assets/css/front.css';
-        if ( ! file_exists( $file ) ) return;
-        echo '<style id="bookshare-css">' . "\n";
-        echo file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-        echo "\n</style>\n";
+    private function init_hooks(): void {
+        add_action( 'init',            [ $this, 'register_shortcodes' ] );
+        add_action( 'rest_api_init',   [ API\RestAPI::class, 'register_routes' ] );
+        add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+        add_action( 'admin_menu',      [ $this, 'register_admin_menu' ] );
+        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
+
+        // Custom Post Types for Authors & Publishers
+        PostTypes::register();
     }
 
-    /** Output JS config + script inline in footer — avoids enqueue URL problems */
-    public function inline_js(): void {
-        if ( is_admin() ) return;
-        $file = BS_PATH . 'assets/js/front.js';
-        if ( ! file_exists( $file ) ) return;
-
-        $config = [
-            'rest'      => esc_url_raw( rest_url( 'bookshare/v1/' ) ),
-            'nonce'     => wp_create_nonce( 'wp_rest' ),
-            'user_id'   => (string) get_current_user_id(),
-            'is_admin'  => current_user_can( 'manage_options' ) ? '1' : '0',
-            'is_logged' => is_user_logged_in() ? '1' : '0',
-            'login_url' => wp_login_url(),
-        ];
-
-        echo '<script id="bookshare-js">' . "\n";
-        echo 'window.BS = ' . wp_json_encode( $config ) . ";\n";
-        echo file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-        echo "\n</script>\n";
+    public function register_shortcodes(): void {
+        // Single all-in-one shortcode
+        add_shortcode( 'bookcircle',        [ Controllers\FrontController::class, 'dashboard' ] );
+        // Legacy individual shortcodes still work
+        add_shortcode( 'bookshare_catalog', [ Controllers\BookController::class,    'catalog_shortcode' ] );
+        add_shortcode( 'bookshare_library', [ Controllers\LibraryController::class, 'library_shortcode' ] );
+        add_shortcode( 'bookshare_search',  [ Controllers\BookController::class,    'search_shortcode' ] );
     }
 
-    public function admin_assets( string $hook ): void {
-        $screen = get_current_screen();
-        if ( ! $screen ) return;
+    public function enqueue_assets(): void {
+        global $post;
+        $has_shortcode = is_a( $post, 'WP_Post' ) && (
+            has_shortcode( $post->post_content, 'bookcircle' ) ||
+            has_shortcode( $post->post_content, 'bookshare_catalog' ) ||
+            has_shortcode( $post->post_content, 'bookshare_library' ) ||
+            has_shortcode( $post->post_content, 'bookshare_search' )
+        );
 
-        $our_posts = [ 'bs_book', 'bs_author', 'bs_publisher' ];
-        if ( ! in_array( $screen->post_type, $our_posts, true )
-            && $screen->id !== 'toplevel_page_bookshare'
-            && $screen->id !== 'bookshare_page_bs-requests' ) {
-            return;
-        }
+        if ( ! $has_shortcode ) return;
 
-        wp_enqueue_media();
+        wp_enqueue_style(
+            'bookshare-css',
+            BS_URL . 'assets/css/bookshare.css',
+            [],
+            BS_VERSION
+        );
 
-        $admin_css = BS_PATH . 'assets/css/admin.css';
-        if ( file_exists( $admin_css ) ) {
-            add_action( 'admin_head', function () use ( $admin_css ) {
-                echo '<style>' . file_get_contents( $admin_css ) . '</style>'; // phpcs:ignore
-            } );
-        }
+        wp_enqueue_script(
+            'bookshare-js',
+            BS_URL . 'assets/js/bookshare.js',
+            [],
+            BS_VERSION,
+            true
+        );
 
-        wp_enqueue_script( 'jquery' );
-        $admin_js = BS_PATH . 'assets/js/admin.js';
-        if ( file_exists( $admin_js ) ) {
-            add_action( 'admin_footer', function () use ( $admin_js ) {
-                echo '<script>' . file_get_contents( $admin_js ) . '</script>'; // phpcs:ignore
-            } );
-        }
+        wp_localize_script( 'bookshare-js', 'BSConfig', [
+            'root'    => esc_url_raw( rest_url( 'bookshare/v1/' ) ),
+            'nonce'   => wp_create_nonce( 'wp_rest' ),
+            'user_id' => get_current_user_id(),
+            'logged_in' => is_user_logged_in(),
+            'login_url' => wp_login_url( get_permalink() ),
+        ] );
+    }
+
+    public function enqueue_admin_assets( string $hook ): void {
+        if ( strpos( $hook, 'bookshare' ) === false ) return;
+
+        wp_enqueue_style(
+            'bookshare-admin-css',
+            BS_URL . 'assets/css/bookshare-admin.css',
+            [],
+            BS_VERSION
+        );
+        wp_enqueue_script(
+            'bookshare-admin-js',
+            BS_URL . 'assets/js/bookshare-admin.js',
+            [ 'jquery' ],
+            BS_VERSION,
+            true
+        );
+        wp_localize_script( 'bookshare-admin-js', 'BSAdmin', [
+            'root'  => esc_url_raw( rest_url( 'bookshare/v1/' ) ),
+            'nonce' => wp_create_nonce( 'wp_rest' ),
+            'ajax_url' => admin_url( 'admin-ajax.php' ),
+        ] );
+    }
+
+    public function register_admin_menu(): void {
+        add_menu_page(
+            __( 'BookCircle', 'bookshare' ),
+            __( 'BookCircle', 'bookshare' ),
+            'manage_options',
+            'bookshare',
+            [ Controllers\AdminController::class, 'main_page' ],
+            'dashicons-book-alt',
+            25
+        );
+        add_submenu_page( 'bookshare', __( 'Books',     'bookshare' ), __( 'Books',     'bookshare' ), 'manage_options', 'bookshare',              [ Controllers\AdminController::class, 'main_page' ] );
+        add_submenu_page( 'bookshare', __( 'Authors',   'bookshare' ), __( 'Authors',   'bookshare' ), 'manage_options', 'bookshare-authors',      [ Controllers\AdminController::class, 'authors_page' ] );
+        add_submenu_page( 'bookshare', __( 'Publishers','bookshare' ), __( 'Publishers','bookshare' ), 'manage_options', 'bookshare-publishers',   [ Controllers\AdminController::class, 'publishers_page' ] );
+        add_submenu_page( 'bookshare', __( 'Rentals',   'bookshare' ), __( 'Rentals',   'bookshare' ), 'manage_options', 'bookshare-rentals',      [ Controllers\AdminController::class, 'rentals_page' ] );
+        add_submenu_page( 'bookshare', __( 'Members',   'bookshare' ), __( 'Members',   'bookshare' ), 'manage_options', 'bookshare-members',      [ Controllers\AdminController::class, 'members_page' ] );
+        add_submenu_page( 'bookshare', __( 'Settings',  'bookshare' ), __( 'Settings',  'bookshare' ), 'manage_options', 'bookshare-settings',     [ Controllers\AdminController::class, 'settings_page' ] );
     }
 }

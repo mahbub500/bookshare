@@ -1,12 +1,11 @@
 {
-    "name": "yourname/bookshare-community",
-    "description": "Community Book Sharing & Rental WordPress Plugin",
+    "name": "bookcircle/bookshare-plugin",
+    "description": "BookCircle Community Book Sharing WordPress Plugin",
     "type": "wordpress-plugin",
-    "license": "GPL-2.0-or-later",
     "autoload": {
         "psr-4": {
             "BookShare\\": "src/"
         }
-    }
-    
+    },
+    "require": {}
 }

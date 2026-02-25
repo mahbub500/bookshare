@@ -1,94 +1,121 @@
 <?php
 namespace BookShare\Models;
 
-/**
- * Book Model — interacts with bs_books table.
- */
+defined( 'ABSPATH' ) || exit;
+
 class Book {
 
-    private static string $table = '';
-
-    private static function table(): string {
+    public static function table(): string {
         global $wpdb;
-        if ( ! self::$table ) {
-            self::$table = $wpdb->prefix . 'bs_books';
-        }
-        return self::$table;
+        return $wpdb->prefix . 'bs_books';
     }
 
-    /** Get all books with optional search */
-    public static function all( array $args = [] ): array {
+    public static function generate_code(): string {
+        do {
+            $code = strtoupper( substr( str_shuffle( 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' ), 0, 8 ) );
+        } while ( self::get_by_code( $code ) );
+        return $code;
+    }
+
+    public static function get_all( array $args = [] ): array {
         global $wpdb;
-        $t = self::table();
+        $t  = self::table();
+        $ta = $wpdb->prefix . 'bs_authors';
+        $tp = $wpdb->prefix . 'bs_publishers';
 
         $where  = '1=1';
-        $values = [];
+        $params = [];
 
         if ( ! empty( $args['search'] ) ) {
-            $like    = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-            $where  .= ' AND (title LIKE %s OR author LIKE %s OR publisher LIKE %s OR unique_code = %s)';
-            $values  = [ $like, $like, $like, $args['search'] ];
+            $s      = '%' . $wpdb->esc_like( $args['search'] ) . '%';
+            $where .= " AND (b.title LIKE %s OR a.name LIKE %s OR b.genre LIKE %s OR b.isbn LIKE %s)";
+            $params = array_merge( $params, [ $s, $s, $s, $s ] );
         }
-
         if ( ! empty( $args['genre'] ) ) {
-            $where   .= ' AND genre = %s';
-            $values[] = $args['genre'];
+            $where .= ' AND b.genre = %s';
+            $params[] = $args['genre'];
         }
 
-        $limit  = isset( $args['limit'] )  ? (int) $args['limit']  : 20;
-        $offset = isset( $args['offset'] ) ? (int) $args['offset'] : 0;
+        $limit  = intval( $args['per_page'] ?? 20 );
+        $offset = intval( $args['offset'] ?? 0 );
 
-        $sql = "SELECT * FROM $t WHERE $where ORDER BY created_at DESC LIMIT %d OFFSET %d";
-        $values[] = $limit;
-        $values[] = $offset;
+        $sql = "SELECT b.*, a.name AS author_name, p.name AS publisher_name
+                FROM {$t} b
+                LEFT JOIN {$ta} a ON b.author_id = a.id
+                LEFT JOIN {$tp} p ON b.publisher_id = p.id
+                WHERE {$where}
+                ORDER BY b.created_at DESC
+                LIMIT %d OFFSET %d";
 
-        return $wpdb->get_results( $values ? $wpdb->prepare( $sql, $values ) : $sql );
+        $params[] = $limit;
+        $params[] = $offset;
+
+        return $wpdb->get_results( $wpdb->prepare( $sql, $params ) );
     }
 
-    /** Find by unique code */
-    public static function find_by_code( string $code ): ?object {
+    public static function count( array $args = [] ): int {
         global $wpdb;
-        $t = self::table();
-        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $t WHERE unique_code = %s", $code ) );
+        $t  = self::table();
+        $ta = $wpdb->prefix . 'bs_authors';
+
+        $where  = '1=1';
+        $params = [];
+
+        if ( ! empty( $args['search'] ) ) {
+            $s      = '%' . $wpdb->esc_like( $args['search'] ) . '%';
+            $where .= " AND (b.title LIKE %s OR a.name LIKE %s OR b.genre LIKE %s)";
+            $params = array_merge( $params, [ $s, $s, $s ] );
+        }
+
+        $sql = "SELECT COUNT(*) FROM {$t} b LEFT JOIN {$ta} a ON b.author_id = a.id WHERE {$where}";
+        return (int) ( empty( $params ) ? $wpdb->get_var( $sql ) : $wpdb->get_var( $wpdb->prepare( $sql, $params ) ) );
     }
 
-    /** Find by ID */
-    public static function find( int $id ): ?object {
+    public static function get_by_id( int $id ): ?object {
         global $wpdb;
-        $t = self::table();
-        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $t WHERE id = %d", $id ) );
+        $t  = self::table();
+        $ta = $wpdb->prefix . 'bs_authors';
+        $tp = $wpdb->prefix . 'bs_publishers';
+
+        return $wpdb->get_row( $wpdb->prepare(
+            "SELECT b.*, a.name AS author_name, a.bio AS author_bio, a.photo_url AS author_photo,
+                    p.name AS publisher_name
+             FROM {$t} b
+             LEFT JOIN {$ta} a ON b.author_id = a.id
+             LEFT JOIN {$tp} p ON b.publisher_id = p.id
+             WHERE b.id = %d",
+            $id
+        ) );
     }
 
-    /** Create a book; auto-generates unique_code if not provided */
+    public static function get_by_code( string $code ): ?object {
+        global $wpdb;
+        return $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM " . self::table() . " WHERE unique_code = %s",
+            $code
+        ) );
+    }
+
     public static function create( array $data ): int|false {
         global $wpdb;
-
-        if ( empty( $data['unique_code'] ) ) {
-            $data['unique_code'] = self::generate_code( $data['title'] ?? '' );
-        }
-
-        $wpdb->insert( self::table(), [
-            'unique_code' => sanitize_text_field( $data['unique_code'] ),
-            'title'       => sanitize_text_field( $data['title'] ),
-            'author'      => sanitize_text_field( $data['author'] ),
-            'publisher'   => sanitize_text_field( $data['publisher'] ?? '' ),
-            'isbn'        => sanitize_text_field( $data['isbn']      ?? '' ),
-            'cover_url'   => esc_url_raw( $data['cover_url']         ?? '' ),
-            'description' => sanitize_textarea_field( $data['description'] ?? '' ),
-            'genre'       => sanitize_text_field( $data['genre']     ?? '' ),
-        ] );
-
-        return $wpdb->insert_id ?: false;
+        $data['unique_code'] = self::generate_code();
+        $data['created_at']  = current_time( 'mysql' );
+        $ok = $wpdb->insert( self::table(), $data );
+        return $ok ? $wpdb->insert_id : false;
     }
 
-    /** Count total books */
-    public static function count(): int {
+    public static function update( int $id, array $data ): bool {
         global $wpdb;
-        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . self::table() );
+        return (bool) $wpdb->update( self::table(), $data, [ 'id' => $id ] );
     }
 
-    private static function generate_code( string $title ): string {
-        $prefix = strtoupper( substr( preg_replace( '/[^a-zA-Z]/', '', $title ), 0, 4 ) );
-        return $prefix . strtoupper( substr( uniqid(), -6 ) );
+    public static function delete( int $id ): bool {
+        global $wpdb;
+        return (bool) $wpdb->delete( self::table(), [ 'id' => $id ] );
+    }
+
+    public static function genres(): array {
+        global $wpdb;
+        return $wpdb->get_col( "SELECT DISTINCT genre FROM " . self::table() . " WHERE genre != '' ORDER BY genre" );
     }
 }

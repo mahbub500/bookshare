@@ -1,156 +1,115 @@
-# 📖 BookCircle Community Plugin v2
+# 📚 BookCircle — Community Book Sharing WordPress Plugin
 
-A WordPress plugin for community book sharing with **Admin-only catalog management**, Custom Post Types, and reader rental requests.
+A feature-rich WordPress plugin for community book listing, personal libraries, and peer-to-peer book rental requests.
 
----
+## ✨ Features
 
-## ✨ Key Features
+- **Central Book Catalog** — Title, Author, Publisher, Genre, Cover, ISBN, Language, Pages
+- **Unique Book Codes** — Auto-generated 8-char codes (e.g. `DUNE3F9A`)
+- **Author Profiles** — Name, bio, email, nationality, birth date, website, social links (Twitter/Instagram/Facebook)
+- **Publisher Profiles** — Name, description, email, phone, address, city, country, founded year, logo
+- **Personal Libraries** — Each reader assigns books to their library
+- **Public / Private toggle** — Control book visibility per user
+- **Search by Unique Code** — See which community members have a book
+- **Rental Requests** — Request to borrow, approve/reject, mark returned
+- **WordPress REST API** — All frontend operations via AJAX
+- **One Shortcode Dashboard** — All tabs in a single `[bookcircle]` shortcode
+- **Beautiful Admin UI** — Full CRUD for books, authors, publishers, rentals, members
 
-| Feature | Who |
-|---------|-----|
-| Add/Edit Books, Authors, Publishers | **Admin only** |
-| Upload book cover image | **Admin** (Featured Image on CPT) |
-| Select Author & Publisher via dropdown | **Admin** |
-| Auto-generate unique book code | **Admin** |
-| Browse central book catalog | Everyone |
-| Add books to personal library | Logged-in readers |
-| Toggle library public/private | Readers |
-| Request to rent from another reader | Logged-in readers |
-| Approve/reject rental requests | Book owner (reader) |
-| Request admin to add a missing book | Logged-in readers |
-| Approve/reject book listing requests | **Admin** |
+## 🚀 Installation
 
----
+### 1. Upload Plugin
+Upload the `bookshare-plugin` folder to `/wp-content/plugins/`
 
-## 📁 File Structure
+### 2. Activate
+Go to **WordPress Admin → Plugins** and activate **BookCircle – Community Book Sharing**
+
+> Tables are created automatically on activation.
+
+### 3. Use Shortcodes
+
+| Shortcode | Description |
+|-----------|-------------|
+| `[bookcircle]` | **Full dashboard** — all tabs in one block |
+| `[bookshare_catalog]` | Open on Catalog tab |
+| `[bookshare_library]` | Open on My Library tab |
+| `[bookshare_search]` | Open on Search by Code tab |
+
+## 📁 Directory Structure
 
 ```
 bookshare-plugin/
-├── bookshare.php                    ← Entry point (includes built-in autoloader, no Composer needed)
-├── composer.json                    ← Optional Composer config
+├── bookshare.php               ← Main plugin entry
+├── composer.json               ← Autoload config
+├── vendor/autoload.php         ← PSR-4 autoloader
 ├── src/
-│   ├── Plugin.php                   ← Main singleton, boots everything
-│   ├── Installer.php                ← Creates DB tables on activation
-│   ├── PostTypes/
-│   │   ├── BookCPT.php              ← bs_book custom post type (admin-only)
-│   │   ├── AuthorCPT.php            ← bs_author custom post type
-│   │   └── PublisherCPT.php         ← bs_publisher custom post type
-│   ├── Admin/
-│   │   ├── AdminMenu.php            ← BookCircle admin menu + dashboard
-│   │   ├── BookMetaBox.php          ← All book meta fields in admin
-│   │   └── BookRequestAdmin.php     ← Manage reader requests in admin
+│   ├── Plugin.php              ← Singleton main class
+│   ├── Installer.php           ← DB table creation
 │   ├── Models/
-│   │   ├── UserLibrary.php          ← User ↔ Book relationships
-│   │   ├── Rental.php               ← Rental request management
-│   │   └── BookRequest.php          ← Book listing requests
+│   │   ├── Book.php
+│   │   ├── Author.php
+│   │   ├── Publisher.php
+│   │   ├── UserLibrary.php
+│   │   └── Rental.php
 │   ├── Controllers/
-│   │   └── ShortcodeController.php  ← Registers all 3 shortcodes
+│   │   ├── FrontController.php   ← [bookcircle] shortcode
+│   │   ├── BookController.php
+│   │   ├── LibraryController.php
+│   │   ├── RentalController.php
+│   │   └── AdminController.php
 │   └── API/
-│       └── RestAPI.php              ← All REST endpoints
+│       └── RestAPI.php
 ├── assets/
-│   ├── css/front.css                ← Frontend styles
-│   ├── css/admin.css                ← Admin styles
-│   ├── js/front.js                  ← Frontend app (all ops via REST)
-│   └── js/admin.js                  ← Admin JS (image upload, etc.)
-└── templates/
-    ├── catalog.php                  ← [bookcircle_catalog] shortcode
-    ├── library.php                  ← [bookcircle_library] shortcode
-    └── search.php                   ← [bookcircle_search] shortcode
+│   ├── js/bookshare.js
+│   ├── js/bookshare-admin.js
+│   ├── css/bookshare.css
+│   └── css/bookshare-admin.css
+├── templates/
+│   └── dashboard.php
+└── admin/
+    ├── page-books.php
+    ├── page-authors.php
+    ├── page-publishers.php
+    ├── page-rentals.php
+    ├── page-members.php
+    └── page-settings.php
 ```
-
----
-
-## 🚀 Installation (No Composer Required!)
-
-1. Upload `bookshare-plugin/` folder to `wp-content/plugins/`
-2. Activate via **WordPress Admin → Plugins**
-3. Tables are created automatically on activation
-
-> The plugin includes a built-in PSR-4 autoloader. No `composer install` needed!
-> If you want to use Composer anyway: `cd bookshare-plugin && composer install`
-
----
-
-## 🔧 Admin Usage
-
-### Adding a Book (Admin Only)
-1. Go to **BookCircle → Books → Add New Book**
-2. Enter the **Title** in the title field
-3. Fill in the **Book Details** meta box:
-   - Unique Code (auto-generated from title — can regenerate)
-   - Select **Author** from dropdown (or add new author first)
-   - Select **Publisher** from dropdown (or add new publisher first)
-   - ISBN, Genre, Publication Year, Language, Pages
-4. Upload **Cover Image** using the **Featured Image** box
-5. Add description in the main editor
-6. Click **Publish**
-
-### Adding Authors
-Go to **BookCircle → Authors → Add New Author**
-- Name (title), Bio (content), Photo (featured image)
-
-### Adding Publishers
-Go to **BookCircle → Publishers → Add New Publisher**
-- Name (title), Description (content), Logo (featured image)
-
-### Managing Book Requests
-Go to **BookCircle → Book Requests**
-- See all pending requests from readers
-- Click **Approve** → automatically creates a `bs_book` post
-- Click **Reject** → marks as rejected, notifies in reader's library view
-
----
-
-## 📌 Shortcodes
-
-Add to any WordPress page:
-
-```
-[bookcircle_catalog]   — Book catalog with search + request form
-[bookcircle_library]   — Personal library + rental management
-[bookcircle_search]    — Find book by unique code
-```
-
----
 
 ## 🗄️ Database Tables
 
 | Table | Purpose |
 |-------|---------|
-| `wp_bs_library` | User ↔ CPT book relationships |
-| `wp_bs_rentals` | Rental requests between readers |
-| `wp_bs_book_requests` | Reader requests to admin to add books |
-
-Book data lives in WordPress `wp_posts` (CPT) and `wp_postmeta`.
-
----
+| `wp_bs_books` | Central book catalog |
+| `wp_bs_authors` | Author profiles |
+| `wp_bs_publishers` | Publisher profiles |
+| `wp_bs_user_library` | User ↔ Book relationship |
+| `wp_bs_rentals` | Rental request tracking |
 
 ## 🔌 REST API
 
-Base: `/wp-json/bookshare/v1/`
+Base URL: `/wp-json/bookshare/v1/`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/books` | — | Get catalog (`?search=`, `?genre=`) |
-| GET | `/books/{id}` | — | Single book |
-| GET | `/authors` | — | All authors |
-| GET | `/publishers` | — | All publishers |
-| GET | `/library` | ✓ | My library |
-| POST | `/library` | ✓ | Add book |
-| DELETE | `/library` | ✓ | Remove book |
-| POST | `/library/toggle` | ✓ | Toggle public/private |
-| GET | `/library/search?code=` | — | Find holders by unique code |
-| POST | `/book-requests` | ✓ | Submit book listing request |
-| GET | `/book-requests` | ✓ | My requests |
-| POST | `/rentals/request` | ✓ | Request to rent |
-| GET | `/rentals/incoming` | ✓ | Incoming rental requests |
-| GET | `/rentals/outgoing` | ✓ | Outgoing rental requests |
-| POST | `/rentals/{id}/status` | ✓ | Update rental status |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/books` | List catalog (`?search=&genre=`) |
+| POST | `/books` | Add book (auth required) |
+| GET | `/books/{code}` | Get book by unique code + holders |
+| GET | `/authors` | List authors |
+| POST | `/authors` | Add author (admin) |
+| GET | `/publishers` | List publishers |
+| GET | `/library` | My library |
+| POST | `/library` | Add book to my library |
+| DELETE | `/library` | Remove book |
+| POST | `/library/toggle` | Toggle public/private |
+| GET | `/library/user/{id}` | Another user's public library |
+| GET | `/library/search?code=` | Find holders by unique code |
+| POST | `/rentals/request` | Request to rent a book |
+| GET | `/rentals/incoming` | My incoming requests |
+| GET | `/rentals/outgoing` | My outgoing requests |
+| POST | `/rentals/{id}/status` | Update rental status |
 
----
+## 🔒 Permissions
 
-## 🔒 Permissions Summary
-
-- **Admin** (`manage_options`): Full access — create, edit, delete CPT posts
-- **Reader** (logged in): Library management, rental requests, book listing requests
-- **Guest** (not logged in): Browse catalog and public libraries only
+- **Anyone** — browse catalog and public libraries
+- **Logged-in users** — add books, manage library, send rental requests
+- **Admins** — full CRUD for all data, manage all rentals

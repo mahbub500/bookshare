@@ -1,72 +1,99 @@
 <?php
 namespace BookShare\Models;
 
+defined( 'ABSPATH' ) || exit;
+
 class Rental {
 
-    private static function table(): string {
+    public static function table(): string {
         global $wpdb;
         return $wpdb->prefix . 'bs_rentals';
     }
 
-    public static function request( int $book_id, int $owner_id, int $requester_id, string $message = '' ) {
+    private static function base_select(): string {
         global $wpdb;
-        $t = self::table();
-        $exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM $t WHERE book_id=%d AND owner_id=%d AND requester_id=%d AND status='pending'",
-            $book_id, $owner_id, $requester_id
-        ) );
-        if ( $exists ) return false;
-
-        $wpdb->insert( $t, [
-            'book_id'      => $book_id,
-            'owner_id'     => $owner_id,
-            'requester_id' => $requester_id,
-            'status'       => 'pending',
-            'message'      => sanitize_textarea_field( $message ),
-        ] );
-        return $wpdb->insert_id ?: false;
-    }
-
-    public static function update_status( int $id, int $owner_id, string $status ): bool {
-        global $wpdb;
-        if ( ! in_array( $status, [ 'approved','rejected','returned' ], true ) ) return false;
-        $data = [ 'status' => $status ];
-        if ( 'approved' === $status ) $data['approved_at'] = current_time( 'mysql' );
-        if ( 'returned' === $status ) $data['returned_at'] = current_time( 'mysql' );
-        return (bool) $wpdb->update( self::table(), $data, [ 'id' => $id, 'owner_id' => $owner_id ] );
+        $tr = self::table();
+        $tb = $wpdb->prefix . 'bs_books';
+        $ta = $wpdb->prefix . 'bs_authors';
+        return "SELECT r.*, b.title, b.unique_code, b.cover_url,
+                       a.name AS author_name,
+                       own.display_name AS owner_name,
+                       req.display_name AS requester_name
+                FROM {$tr} r
+                JOIN {$tb} b ON r.book_id = b.id
+                LEFT JOIN {$ta} a ON b.author_id = a.id
+                JOIN {$wpdb->users} own ON r.owner_id = own.ID
+                JOIN {$wpdb->users} req ON r.requester_id = req.ID";
     }
 
     public static function get_incoming( int $owner_id ): array {
         global $wpdb;
-        $t = self::table();
-        $rows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT r.*, u.display_name AS requester_name FROM $t r
-             JOIN {$wpdb->users} u ON u.ID = r.requester_id
-             WHERE r.owner_id=%d ORDER BY r.requested_at DESC",
+        return $wpdb->get_results( $wpdb->prepare(
+            self::base_select() . " WHERE r.owner_id = %d ORDER BY r.created_at DESC",
             $owner_id
         ) );
-        foreach ( $rows as $row ) {
-            $post = get_post( $row->book_id );
-            $row->book_title = $post ? $post->post_title : 'Unknown';
-            $row->book_code  = $post ? get_post_meta( $post->ID, '_bs_unique_code', true ) : '';
-        }
-        return $rows;
     }
 
     public static function get_outgoing( int $user_id ): array {
         global $wpdb;
-        $t = self::table();
-        $rows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT r.*, u.display_name AS owner_name FROM $t r
-             JOIN {$wpdb->users} u ON u.ID = r.owner_id
-             WHERE r.requester_id=%d ORDER BY r.requested_at DESC",
+        return $wpdb->get_results( $wpdb->prepare(
+            self::base_select() . " WHERE r.requester_id = %d ORDER BY r.created_at DESC",
             $user_id
         ) );
-        foreach ( $rows as $row ) {
-            $post = get_post( $row->book_id );
-            $row->book_title = $post ? $post->post_title : 'Unknown';
-            $row->book_code  = $post ? get_post_meta( $post->ID, '_bs_unique_code', true ) : '';
+    }
+
+    public static function get_all_admin( array $args = [] ): array {
+        global $wpdb;
+        $where  = '1=1';
+        $params = [];
+
+        if ( ! empty( $args['status'] ) ) {
+            $where .= ' AND r.status = %s';
+            $params[] = $args['status'];
         }
-        return $rows;
+
+        $limit  = intval( $args['per_page'] ?? 30 );
+        $offset = intval( $args['offset'] ?? 0 );
+        $params[] = $limit;
+        $params[] = $offset;
+
+        return $wpdb->get_results( $wpdb->prepare(
+            self::base_select() . " WHERE {$where} ORDER BY r.created_at DESC LIMIT %d OFFSET %d",
+            $params
+        ) );
+    }
+
+    public static function count_admin(): int {
+        global $wpdb;
+        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . self::table() );
+    }
+
+    public static function get_by_id( int $id ): ?object {
+        global $wpdb;
+        return $wpdb->get_row( $wpdb->prepare(
+            self::base_select() . " WHERE r.id = %d",
+            $id
+        ) );
+    }
+
+    public static function create( array $data ): int|false {
+        global $wpdb;
+        $data['created_at'] = current_time( 'mysql' );
+        $data['updated_at'] = current_time( 'mysql' );
+        $ok = $wpdb->insert( self::table(), $data );
+        return $ok ? $wpdb->insert_id : false;
+    }
+
+    public static function update_status( int $id, string $status ): bool {
+        global $wpdb;
+        return (bool) $wpdb->update( self::table(), [ 'status' => $status ], [ 'id' => $id ] );
+    }
+
+    public static function active_request_exists( int $book_id, int $requester_id ): bool {
+        global $wpdb;
+        return (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM " . self::table() . " WHERE book_id = %d AND requester_id = %d AND status IN ('pending','approved')",
+            $book_id, $requester_id
+        ) );
     }
 }
