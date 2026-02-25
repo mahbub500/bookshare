@@ -140,9 +140,9 @@ final class Plugin {
             'dashicons-book-alt',
             25
         );
-        add_submenu_page( 'bookshare', __( 'Books',     'bookshare' ), __( 'Books',     'bookshare' ), 'manage_options', 'bookshare',              [ Controllers\AdminController::class, 'main_page' ] );
-        add_submenu_page( 'bookshare', __( 'Authors',   'bookshare' ), __( 'Authors',   'bookshare' ), 'manage_options', 'bookshare-authors',      [ Controllers\AdminController::class, 'authors_page' ] );
-        add_submenu_page( 'bookshare', __( 'Publishers','bookshare' ), __( 'Publishers','bookshare' ), 'manage_options', 'bookshare-publishers',   [ Controllers\AdminController::class, 'publishers_page' ] );
+        // add_submenu_page( 'bookshare', __( 'Books',     'bookshare' ), __( 'Books',     'bookshare' ), 'manage_options', 'bookshare',              [ Controllers\AdminController::class, 'main_page' ] );
+        // add_submenu_page( 'bookshare', __( 'Authors',   'bookshare' ), __( 'Authors',   'bookshare' ), 'manage_options', 'bookshare-authors',      [ Controllers\AdminController::class, 'authors_page' ] );
+        // add_submenu_page( 'bookshare', __( 'Publishers','bookshare' ), __( 'Publishers','bookshare' ), 'manage_options', 'bookshare-publishers',   [ Controllers\AdminController::class, 'publishers_page' ] );
         add_submenu_page( 'bookshare', __( 'Rentals',   'bookshare' ), __( 'Rentals',   'bookshare' ), 'manage_options', 'bookshare-rentals',      [ Controllers\AdminController::class, 'rentals_page' ] );
         add_submenu_page( 'bookshare', __( 'Members',   'bookshare' ), __( 'Members',   'bookshare' ), 'manage_options', 'bookshare-members',      [ Controllers\AdminController::class, 'members_page' ] );
         add_submenu_page( 'bookshare', __( 'Settings',  'bookshare' ), __( 'Settings',  'bookshare' ), 'manage_options', 'bookshare-settings',     [ Controllers\AdminController::class, 'settings_page' ] );
