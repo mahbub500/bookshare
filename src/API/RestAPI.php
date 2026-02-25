@@ -547,7 +547,6 @@ class RestAPI {
         $id = UserLibrary::add(
             get_current_user_id(),
             $book_id,
-            sanitize_text_field( (string) $r->get_param( 'condition_note' ) )
         );
 
         if ( ! $id ) {
