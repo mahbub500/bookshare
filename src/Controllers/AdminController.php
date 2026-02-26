@@ -50,11 +50,34 @@ class AdminController {
         include BS_DIR . 'admin/page-settings.php';
     }
 
+    public static function main_page(): void {
+        $stats = [
+            'books'      => Book::count([]),
+            'authors'    => Author::count(),
+            'publishers' => Publisher::count(),
+            'rentals'    => Rental::count_admin(),
+        ];
+        $books      = Book::get_all( ['per_page' => 50, 'offset' => 0] );
+        $authors    = Author::get_list();
+        $publishers = Publisher::get_list();
+        include BS_DIR . 'admin/page-books.php';
+    }
+
+    public static function authors_page(): void {
+        $authors = Author::get_all( ['per_page' => 100, 'offset' => 0] );
+        include BS_DIR . 'admin/page-authors.php';
+    }
+
+    public static function publishers_page(): void {
+        $publishers = Publisher::get_all( ['per_page' => 100, 'offset' => 0] );
+        include BS_DIR . 'admin/page-publishers.php';
+    }
+
     public static function analytics_page(): void {
         $stats = [
             'books'      => Book::count([]),
-            'authors'    => \BookShare\Models\Author::count(),
-            'publishers' => \BookShare\Models\Publisher::count(),
+            'authors'    => Author::count(),
+            'publishers' => Publisher::count(),
             'genres'     => count(Book::genres()),
         ];
 
@@ -94,7 +117,7 @@ class AdminController {
         usort($top_genres, fn($a, $b) => $b['count'] - $a['count']);
 
         // Authors Analytics
-        $all_authors = \BookShare\Models\Author::get_all(['per_page' => -1]);
+        $all_authors = Author::get_all(['per_page' => -1]);
         $total_authors = count($all_authors);
         $authors_analytics = [
             'with_bio'      => 0,
@@ -128,7 +151,7 @@ class AdminController {
         usort($authors_by_nationality, fn($a, $b) => $b['count'] - $a['count']);
 
         // Publishers Analytics
-        $all_publishers = \BookShare\Models\Publisher::get_all(['per_page' => -1]);
+        $all_publishers = Publisher::get_all(['per_page' => -1]);
         $total_publishers = count($all_publishers);
         $publishers_analytics = [
             'with_description' => 0,
