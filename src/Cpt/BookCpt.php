@@ -1,6 +1,9 @@
 <?php
 namespace BookShare\Cpt;
 
+use BookShare\Cpt\AuthorCpt;
+use BookShare\Cpt\PublisherCpt;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -151,7 +154,7 @@ class BookCPT {
 
         // Build author options
         $authors = get_posts( [
-            'post_type'      => PostTypes::AUTHOR_CPT,
+            'post_type'      => AuthorCpt::CPT,
             'posts_per_page' => -1,
             'orderby'        => 'title',
             'order'          => 'ASC',
@@ -160,7 +163,7 @@ class BookCPT {
 
         // Build publisher options
         $publishers = get_posts( [
-            'post_type'      => PostTypes::PUBLISHER_CPT,
+            'post_type'      => PublisherCpt::CPT,
             'posts_per_page' => -1,
             'orderby'        => 'title',
             'order'          => 'ASC',
