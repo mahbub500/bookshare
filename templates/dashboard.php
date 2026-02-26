@@ -26,7 +26,7 @@ $init_tab = isset($atts['tab']) ? $atts['tab'] : 'catalog';
 
     <!-- ── Tabs ─────────────────────────────────────────────────── -->
     <nav class="bs-tabs" role="tablist">
-        <button class="bs-tab active" data-tab="catalog"  role="tab" aria-selected="true">
+        <button class="bs-tab" data-tab="catalog"  role="tab" aria-selected="true">
             <span class="bs-tab-icon">🌐</span> Catalog
         </button>
         <button class="bs-tab" data-tab="search" role="tab">
@@ -52,7 +52,7 @@ $init_tab = isset($atts['tab']) ? $atts['tab'] : 'catalog';
     <div id="bs-toast" class="bs-toast" role="alert" aria-live="polite"></div>
 
     <!-- ═══════════════════ CATALOG TAB ═══════════════════════════ -->
-    <section class="bs-panel active" id="bs-panel-catalog">
+    <section class="bs-panel " id="bs-panel-catalog">
         <div class="bs-panel-toolbar">
             <div class="bs-search-wrap">
                 <span class="bs-search-icon">🔎</span>
