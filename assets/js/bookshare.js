@@ -614,3 +614,46 @@
         init();
     }
 })();
+
+(function ($) {
+
+    $(function () {
+
+        const cookieName = 'bs_active_tab';
+
+        // Cookie helpers
+        function setCookie(name, value, days) {
+            const d = new Date();
+            d.setTime(d.getTime() + days * 86400000);
+            document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/`;
+        }
+
+        function getCookie(name) {
+            return document.cookie
+                .split('; ')
+                .find(row => row.startsWith(name + '='))
+                ?.split('=')[1] || null;
+        }
+
+        // When a tab is clicked → save cookie
+        $('.bs-tab').on('click', function () {
+            const tab = $(this).data('tab');
+            setCookie(cookieName, tab, 7);
+        });
+
+        // After reload → auto-click saved tab
+        const savedTab = getCookie(cookieName);
+        if (savedTab && $(`.bs-tab[data-tab="${savedTab}"]`).length) {
+
+            // Auto-click saved tab
+            $(`.bs-tab[data-tab="${savedTab}"]`).trigger('click');
+
+        } else {
+
+            // If no cookie → click first tab
+            $('.bs-tab').first().trigger('click');
+        }
+
+    });
+
+})(jQuery);
