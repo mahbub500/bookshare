@@ -65,6 +65,14 @@ final class Plugin {
         wp_enqueue_script(
             'bookshare-js',
             BS_URL . 'assets/js/bookshare.js',
+            ['jquery'],
+            BS_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
+            'bookshare-cookie',
+            'https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js',
             [],
             BS_VERSION,
             true
