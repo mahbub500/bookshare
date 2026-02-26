@@ -393,7 +393,8 @@ class UserLibrary {
                 'post__in'       => array_values( $publisher_ids ),
                 'orderby'        => 'post__in',
             ] );
-            update_post_meta_cache( wp_list_pluck( $publisher_posts_raw, 'ID' ) );
+
+            update_meta_cache( 'post', wp_list_pluck( $publisher_posts_raw, 'ID' ) ); 
         }
 
         // ── 7. Map each row, pulling from warmed caches ───────────────────────
