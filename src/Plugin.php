@@ -146,6 +146,8 @@ final class Plugin {
         // add_submenu_page( 'bookshare', __( 'Publishers','bookshare' ), __( 'Publishers','bookshare' ), 'manage_options', 'bookshare-publishers',   [ Controllers\AdminController::class, 'publishers_page' ] );
         add_submenu_page( 'bookshare', __( 'Rentals',   'bookshare' ), __( 'Rentals',   'bookshare' ), 'manage_options', 'bookshare-rentals',      [ Controllers\AdminController::class, 'rentals_page' ] );
         add_submenu_page( 'bookshare', __( 'Members',   'bookshare' ), __( 'Members',   'bookshare' ), 'manage_options', 'bookshare-members',      [ Controllers\AdminController::class, 'members_page' ] );
+        add_submenu_page( 'bookshare', __( 'Analytics',  'bookshare' ), __( 'Analytics',  'Analytics' ), 'manage_options', 'bookshare-analytics',     [ Controllers\AdminController::class, 'analytics_page' ] );
+
         add_submenu_page( 'bookshare', __( 'Settings',  'bookshare' ), __( 'Settings',  'bookshare' ), 'manage_options', 'bookshare-settings',     [ Controllers\AdminController::class, 'settings_page' ] );
     }
 }

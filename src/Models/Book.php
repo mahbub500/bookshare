@@ -1,12 +1,12 @@
 <?php
-namespace BookShare\Cpt;
+namespace BookShare\Models;
 
 use BookShare\Cpt\AuthorCpt;
 use BookShare\Cpt\PublisherCpt;
 
 defined( 'ABSPATH' ) || exit;
 
-class BookCPT {
+class Book {
 
     const BOOK_CPT = 'bs_book';
 
