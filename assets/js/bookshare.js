@@ -109,6 +109,8 @@
             offset: state.catalogPage * state.PER_PAGE,
         });
         const data = await request('GET', 'books?' + params);
+
+
         loading(false);
         state.catalogTotal = data.total || 0;
         renderCatalog(data.books || []);
@@ -137,8 +139,9 @@
     }
 
     function bookCardHtml(book) {
+        console.log( book );
         const addBtn = IS_LOGGED_IN
-            ? `<button class="bs-btn bs-btn-primary bs-btn-sm" data-action="add-library" data-id="${esc(book.id)}">+ My Library</button>`
+            ? `<button class="bs-btn bs-btn-primary bs-btn-sm" data-action="add-library" data-id="${esc(book.ID)}">+ My Library</button>`
             : '';
         return `<div class="bs-book-card" data-code="${esc(book.unique_code)}">
             <div class="bs-book-cover">

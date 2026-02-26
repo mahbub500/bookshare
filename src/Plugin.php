@@ -3,6 +3,8 @@ namespace BookShare;
 
 defined( 'ABSPATH' ) || exit;
 
+use BookShare\Front\Helper;
+
 final class Plugin {
 
     private static ?Plugin $instance = null;
@@ -34,6 +36,10 @@ final class Plugin {
         Cpt\BookCpt::register();
         Cpt\AuthorCpt::register();
         Cpt\PublisherCpt::register();
+
+        if ( ! is_admin() ) {
+            Helper::register();
+        }
     }
 
     public function register_shortcodes(): void {
