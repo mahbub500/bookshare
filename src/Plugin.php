@@ -30,9 +30,10 @@ final class Plugin {
         add_action( 'admin_menu',      [ $this, 'register_admin_menu' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
 
-        // Custom Post Types for Authors & Publishers
-        Cpt\PostTypes::register();
+        // Custom Post Types for Authors & Publishers        
         Cpt\BookCpt::register();
+        Cpt\AuthorCpt::register();
+        Cpt\PublisherCpt::register();
     }
 
     public function register_shortcodes(): void {
@@ -65,14 +66,6 @@ final class Plugin {
         wp_enqueue_script(
             'bookshare-js',
             BS_URL . 'assets/js/bookshare.js',
-            ['jquery'],
-            BS_VERSION,
-            true
-        );
-
-        wp_enqueue_script(
-            'bookshare-cookie',
-            'https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js',
             [],
             BS_VERSION,
             true
@@ -153,7 +146,6 @@ final class Plugin {
         // add_submenu_page( 'bookshare', __( 'Publishers','bookshare' ), __( 'Publishers','bookshare' ), 'manage_options', 'bookshare-publishers',   [ Controllers\AdminController::class, 'publishers_page' ] );
         add_submenu_page( 'bookshare', __( 'Rentals',   'bookshare' ), __( 'Rentals',   'bookshare' ), 'manage_options', 'bookshare-rentals',      [ Controllers\AdminController::class, 'rentals_page' ] );
         add_submenu_page( 'bookshare', __( 'Members',   'bookshare' ), __( 'Members',   'bookshare' ), 'manage_options', 'bookshare-members',      [ Controllers\AdminController::class, 'members_page' ] );
-        add_submenu_page( 'bookshare', __( 'Analytics', 'bookshare' ), __( 'Analytics', 'bookshare' ), 'manage_options', 'bookshare-analytics',    [ Controllers\AdminController::class, 'analytics_page' ] );
         add_submenu_page( 'bookshare', __( 'Settings',  'bookshare' ), __( 'Settings',  'bookshare' ), 'manage_options', 'bookshare-settings',     [ Controllers\AdminController::class, 'settings_page' ] );
     }
 }
