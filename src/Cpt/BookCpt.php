@@ -6,57 +6,32 @@ use BookShare\Cpt\PublisherCpt;
 
 defined( 'ABSPATH' ) || exit;
 
-/**
- * Registers the `bs_book` Custom Post Type.
- *
- * All book data is stored as post meta — no custom DB table needed.
- * Author and Publisher are stored by their wp_post ID (bs_author / bs_publisher CPTs).
- *
- * Meta keys
- * ─────────
- * bs_unique_code    – auto-generated, read-only
- * bs_author_id      – post ID of a bs_author post
- * bs_publisher_id   – post ID of a bs_publisher post
- * bs_genre          – text
- * bs_isbn           – text
- * bs_published_year – number
- * bs_pages          – number
- * bs_language       – text  (default: English)
- * bs_cover_url      – url
- * bs_description    – textarea
- */
 class BookCPT {
 
     const BOOK_CPT = 'bs_book';
 
     const BOOK_FIELDS = [
-        'bs_unique_code'    => [ 'label' => 'Unique Code',     'type' => 'text'     ],
-        'bs_author_id'      => [ 'label' => 'Author',          'type' => 'post_select' ],
-        'bs_publisher_id'   => [ 'label' => 'Publisher',       'type' => 'post_select' ],
-        'bs_genre'          => [ 'label' => 'Genre',           'type' => 'text'     ],
-        'bs_isbn'           => [ 'label' => 'ISBN',            'type' => 'text'     ],
-        'bs_published_year' => [ 'label' => 'Published Year',  'type' => 'number'   ],
-        'bs_pages'          => [ 'label' => 'Pages',           'type' => 'number'   ],
-        'bs_language'       => [ 'label' => 'Language',        'type' => 'text'     ],
-        'bs_cover_url'      => [ 'label' => 'Cover URL',       'type' => 'url'      ],
-        'bs_description'    => [ 'label' => 'Description',     'type' => 'textarea' ],
+        'bs_author_id'      => [ 'label' => 'Author',         'type' => 'post_select' ],
+        'bs_publisher_id'   => [ 'label' => 'Publisher',      'type' => 'post_select' ],
+        'bs_isbn'           => [ 'label' => 'ISBN',           'type' => 'text'        ],
+        'bs_published_year' => [ 'label' => 'Published Year', 'type' => 'number'      ],
+        'bs_pages'          => [ 'label' => 'Pages',          'type' => 'number'      ],
+        'bs_language'       => [ 'label' => 'Language',       'type' => 'text'        ],
+        'bs_description'    => [ 'label' => 'Description',    'type' => 'textarea'    ],
     ];
 
-    // ── Boot ─────────────────────────────────────────────────────────────────
+    // ── Boot ──────────────────────────────────────────────────────────────────
     public static function register(): void {
-        add_action( 'init',              [ self::class, 'register_cpt'     ] );
-        add_action( 'add_meta_boxes',    [ self::class, 'add_meta_boxes'   ] );
-        add_action( 'save_post',         [ self::class, 'save_meta'        ], 10, 2 );
+        add_action( 'init',           [ self::class, 'register_cpt'       ] );
+        add_action( 'init',           [ self::class, 'register_taxonomy'  ] );
+        add_action( 'add_meta_boxes', [ self::class, 'add_meta_boxes'     ] );
+        add_action( 'save_post',      [ self::class, 'save_meta'          ], 10, 2 );
+        add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
 
-        // List-table columns
-        add_filter( 'manage_' . self::BOOK_CPT . '_posts_columns',       [ self::class, 'book_columns'      ] );
-        add_action( 'manage_' . self::BOOK_CPT . '_posts_custom_column', [ self::class, 'book_column_data'  ], 10, 2 );
-        add_filter( 'manage_edit-' . self::BOOK_CPT . '_sortable_columns', [ self::class, 'sortable_columns' ] );
+        add_filter( 'manage_' . self::BOOK_CPT . '_posts_columns',         [ self::class, 'book_columns'      ] );
+        add_action( 'manage_' . self::BOOK_CPT . '_posts_custom_column',   [ self::class, 'book_column_data'  ], 10, 2 );
+        add_filter( 'manage_edit-' . self::BOOK_CPT . '_sortable_columns', [ self::class, 'sortable_columns'  ] );
 
-        // Quick/bulk edit: keep unique_code read-only
-        add_action( 'admin_head', [ self::class, 'admin_head_styles' ] );
-
-        // Register meta for REST API
         add_action( 'init', [ self::class, 'register_meta' ] );
     }
 
@@ -80,7 +55,7 @@ class BookCPT {
             'public'             => true,
             'publicly_queryable' => true,
             'show_ui'            => true,
-            'show_in_menu'       => 'bookshare',   // nest under BookCircle menu
+            'show_in_menu'       => 'bookshare',
             'show_in_rest'       => true,
             'rest_base'          => 'bs-books',
             'query_var'          => true,
@@ -92,10 +67,63 @@ class BookCPT {
             'supports'           => [ 'title', 'thumbnail', 'revisions' ],
             'show_in_nav_menus'  => true,
             'delete_with_user'   => false,
+            'taxonomies'         => [ 'bs_book_tag', 'bs_book_category' ],
         ] );
     }
 
-    // ── Register meta for REST ────────────────────────────────────────────────
+    // ── Register Taxonomies ───────────────────────────────────────────────────
+    public static function register_taxonomy(): void {
+
+        // Book Tags (non-hierarchical, like post tags)
+        register_taxonomy( 'bs_book_tag', self::BOOK_CPT, [
+            'labels' => [
+                'name'              => __( 'Book Tags',        'bookshare' ),
+                'singular_name'     => __( 'Book Tag',         'bookshare' ),
+                'search_items'      => __( 'Search Tags',      'bookshare' ),
+                'all_items'         => __( 'All Tags',         'bookshare' ),
+                'edit_item'         => __( 'Edit Tag',         'bookshare' ),
+                'update_item'       => __( 'Update Tag',       'bookshare' ),
+                'add_new_item'      => __( 'Add New Tag',      'bookshare' ),
+                'new_item_name'     => __( 'New Tag Name',     'bookshare' ),
+                'menu_name'         => __( 'Book Tags',        'bookshare' ),
+                'not_found'         => __( 'No tags found.',   'bookshare' ),
+            ],
+            'hierarchical'      => false,
+            'public'            => true,
+            'show_ui'           => true,
+            'show_in_menu'      => true,
+            'show_in_rest'      => true,
+            'show_admin_column' => true,
+            'rewrite'           => [ 'slug' => 'book-tag' ],
+        ] );
+
+        // Book Categories (hierarchical, like post categories)
+        register_taxonomy( 'bs_book_category', self::BOOK_CPT, [
+            'labels' => [
+                'name'              => __( 'Book Categories',      'bookshare' ),
+                'singular_name'     => __( 'Book Category',        'bookshare' ),
+                'search_items'      => __( 'Search Categories',    'bookshare' ),
+                'all_items'         => __( 'All Categories',       'bookshare' ),
+                'parent_item'       => __( 'Parent Category',      'bookshare' ),
+                'parent_item_colon' => __( 'Parent Category:',     'bookshare' ),
+                'edit_item'         => __( 'Edit Category',        'bookshare' ),
+                'update_item'       => __( 'Update Category',      'bookshare' ),
+                'add_new_item'      => __( 'Add New Category',     'bookshare' ),
+                'new_item_name'     => __( 'New Category Name',    'bookshare' ),
+                'menu_name'         => __( 'Book Categories',      'bookshare' ),
+                'not_found'         => __( 'No categories found.', 'bookshare' ),
+            ],
+            'hierarchical'      => true,
+            'public'            => true,
+            'show_ui'           => true,
+            'show_in_menu'      => true,
+            'show_in_rest'      => true,
+            'show_admin_column' => true,
+            'rewrite'           => [ 'slug' => 'book-category' ],
+        ] );
+    }
+
+    // ── Register Meta for REST ────────────────────────────────────────────────
     public static function register_meta(): void {
         $common = [
             'object_subtype' => self::BOOK_CPT,
@@ -104,17 +132,50 @@ class BookCPT {
             'auth_callback'  => fn() => current_user_can( 'edit_posts' ),
         ];
 
-        $string_keys = [
-            'bs_unique_code', 'bs_genre', 'bs_isbn', 'bs_language',
-            'bs_cover_url',   'bs_description',
-        ];
+        $string_keys = [ 'bs_unique_code', 'bs_isbn', 'bs_language', 'bs_description', 'bs_author_ids' ];
         foreach ( $string_keys as $key ) {
             register_post_meta( self::BOOK_CPT, $key, array_merge( $common, [ 'type' => 'string' ] ) );
         }
 
-        foreach ( [ 'bs_author_id', 'bs_publisher_id', 'bs_published_year', 'bs_pages' ] as $key ) {
+        foreach ( [ 'bs_publisher_id', 'bs_published_year', 'bs_pages' ] as $key ) {
             register_post_meta( self::BOOK_CPT, $key, array_merge( $common, [ 'type' => 'integer' ] ) );
         }
+    }
+
+    // ── Enqueue Select2 ───────────────────────────────────────────────────────
+    public static function enqueue_assets( string $hook ): void {
+        $screen = get_current_screen();
+        if ( ! $screen || $screen->post_type !== self::BOOK_CPT ) return;
+        if ( ! in_array( $hook, [ 'post.php', 'post-new.php' ], true ) ) return;
+
+        wp_enqueue_style(
+            'select2',
+            'https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css',
+            [],
+            '4.0.13'
+        );
+        wp_enqueue_script(
+            'select2',
+            'https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js',
+            [ 'jquery' ],
+            '4.0.13',
+            true
+        );
+        wp_enqueue_style(
+            'bs-book-cpt',
+            BS_URL . 'assets/css/book-cpt.css',
+            [ 'select2' ],
+            BS_VERSION
+        );
+        wp_add_inline_script( 'select2', '
+            jQuery(function($){
+                $("#bs_author_ids").select2({
+                    placeholder: "— Select Authors —",
+                    allowClear: true,
+                    width: "100%"
+                });
+            });
+        ' );
     }
 
     // ── Meta Boxes ────────────────────────────────────────────────────────────
@@ -123,27 +184,25 @@ class BookCPT {
             'bs_book_details',
             '📚 Book Details',
             [ self::class, 'render_book_meta_box' ],
-            self::BOOK_CPT,
-            'normal',
-            'high'
+            self::BOOK_CPT, 'normal', 'high'
         );
-
         add_meta_box(
             'bs_book_publishing',
             '🏢 Publishing Info',
             [ self::class, 'render_book_publishing_box' ],
-            self::BOOK_CPT,
-            'side',
-            'default'
+            self::BOOK_CPT, 'side', 'default'
         );
-
         add_meta_box(
             'bs_book_code',
             '🔖 Unique Code',
             [ self::class, 'render_book_code_box' ],
-            self::BOOK_CPT,
-            'side',
-            'high'
+            self::BOOK_CPT, 'side', 'high'
+        );
+        add_meta_box(
+            'bs_book_cover_preview',
+            '🖼️ Cover Image',
+            [ self::class, 'render_cover_preview_box' ],
+            self::BOOK_CPT, 'side', 'low'
         );
     }
 
@@ -152,7 +211,12 @@ class BookCPT {
         wp_nonce_field( 'bs_book_meta', 'bs_book_nonce' );
         $m = self::get_meta( $post->ID );
 
-        // Build author options
+        // Saved author IDs (multiple)
+        $saved_author_ids = array_filter( array_map( 'intval',
+            explode( ',', $m['bs_author_ids'] ?? '' )
+        ) );
+
+        // All authors
         $authors = get_posts( [
             'post_type'      => AuthorCpt::CPT,
             'posts_per_page' => -1,
@@ -161,7 +225,7 @@ class BookCPT {
             'post_status'    => 'publish',
         ] );
 
-        // Build publisher options
+        // All publishers
         $publishers = get_posts( [
             'post_type'      => PublisherCpt::CPT,
             'posts_per_page' => -1,
@@ -172,19 +236,20 @@ class BookCPT {
         ?>
         <div class="bs-metabox-grid">
 
-            <div class="bs-meta-row">
-                <label class="bs-meta-label">Author</label>
-                <select name="bs_author_id" class="bs-meta-input">
-                    <option value="">— Select Author —</option>
+            <!-- Authors (Select2 multi-select) -->
+            <div class="bs-meta-row bs-meta-full">
+                <label class="bs-meta-label" for="bs_author_ids">Authors</label>
+                <select name="bs_author_ids[]" id="bs_author_ids" multiple="multiple" class="bs-meta-input">
                     <?php foreach ( $authors as $a ) : ?>
                         <option value="<?php echo esc_attr( $a->ID ); ?>"
-                            <?php selected( (int) $m['bs_author_id'], $a->ID ); ?>>
+                            <?php echo in_array( $a->ID, $saved_author_ids, true ) ? 'selected' : ''; ?>>
                             <?php echo esc_html( $a->post_title ); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
             </div>
 
+            <!-- Publisher -->
             <div class="bs-meta-row">
                 <label class="bs-meta-label">Publisher</label>
                 <select name="bs_publisher_id" class="bs-meta-input">
@@ -198,46 +263,35 @@ class BookCPT {
                 </select>
             </div>
 
-            <div class="bs-meta-row">
-                <label class="bs-meta-label">Genre</label>
-                <input type="text" name="bs_genre" value="<?php echo esc_attr( $m['bs_genre'] ); ?>"
-                    class="bs-meta-input" placeholder="Fiction, Sci-Fi, Biography…">
-            </div>
-
+            <!-- ISBN -->
             <div class="bs-meta-row">
                 <label class="bs-meta-label">ISBN</label>
                 <input type="text" name="bs_isbn" value="<?php echo esc_attr( $m['bs_isbn'] ); ?>"
                     class="bs-meta-input" placeholder="978-…">
             </div>
 
+            <!-- Published Year -->
             <div class="bs-meta-row">
                 <label class="bs-meta-label">Published Year</label>
                 <input type="number" name="bs_published_year" value="<?php echo esc_attr( $m['bs_published_year'] ); ?>"
                     class="bs-meta-input" placeholder="2024" min="1000" max="2099">
             </div>
 
+            <!-- Pages -->
             <div class="bs-meta-row">
                 <label class="bs-meta-label">Pages</label>
                 <input type="number" name="bs_pages" value="<?php echo esc_attr( $m['bs_pages'] ); ?>"
                     class="bs-meta-input" placeholder="320" min="1">
             </div>
 
+            <!-- Language -->
             <div class="bs-meta-row">
                 <label class="bs-meta-label">Language</label>
                 <input type="text" name="bs_language" value="<?php echo esc_attr( $m['bs_language'] ?: 'English' ); ?>"
                     class="bs-meta-input" placeholder="English">
             </div>
 
-            <div class="bs-meta-row bs-meta-full">
-                <label class="bs-meta-label">Cover Image URL</label>
-                <input type="url" name="bs_cover_url" value="<?php echo esc_attr( $m['bs_cover_url'] ); ?>"
-                    class="bs-meta-input" placeholder="https://…/cover.jpg">
-                <?php if ( $m['bs_cover_url'] ) : ?>
-                    <img src="<?php echo esc_url( $m['bs_cover_url'] ); ?>" alt=""
-                        style="margin-top:8px;max-height:120px;border-radius:8px;border:2px solid #E5E7F0">
-                <?php endif; ?>
-            </div>
-
+            <!-- Description -->
             <div class="bs-meta-row bs-meta-full">
                 <label class="bs-meta-label">Description</label>
                 <textarea name="bs_description" class="bs-meta-textarea" rows="4"
@@ -248,21 +302,45 @@ class BookCPT {
         <?php
     }
 
+    // ── Meta Box: Cover Preview (sidebar) ─────────────────────────────────────
+    public static function render_cover_preview_box( \WP_Post $post ): void {
+        $thumb_id = get_post_thumbnail_id( $post->ID );
+        ?>
+        <div style="text-align:center;padding:6px 0">
+            <?php if ( $thumb_id ) : ?>
+                <?php echo get_the_post_thumbnail( $post->ID, [ 120, 170 ], [
+                    'style' => 'width:120px;height:170px;object-fit:cover;border-radius:8px;border:2px solid #E5E7EB;display:block;margin:0 auto 10px'
+                ] ); ?>
+                <p style="font-size:12px;color:#6B7280;margin:0">✅ Cover image is set.</p>
+            <?php else : ?>
+                <div style="width:120px;height:170px;border-radius:8px;background:#F3F4F6;border:2px dashed #D1D5DB;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:40px">
+                    📚
+                </div>
+                <p style="font-size:12px;color:#6B7280;margin:0">Set the <strong>Featured Image</strong> as the book cover.</p>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
     // ── Meta Box: Publishing Info (sidebar) ───────────────────────────────────
     public static function render_book_publishing_box( \WP_Post $post ): void {
         $m = self::get_meta( $post->ID );
 
-        $author_name    = $m['bs_author_id']    ? get_the_title( (int) $m['bs_author_id'] )    : '—';
+        // Multiple authors
+        $author_ids   = array_filter( array_map( 'intval', explode( ',', $m['bs_author_ids'] ?? '' ) ) );
+        $author_names = array_filter( array_map( fn( $id ) => get_the_title( $id ), $author_ids ) );
+        $author_str   = $author_names ? implode( ', ', $author_names ) : '—';
+
         $publisher_name = $m['bs_publisher_id'] ? get_the_title( (int) $m['bs_publisher_id'] ) : '—';
 
         echo '<table style="width:100%;font-size:13px;border-collapse:collapse">';
         $rows = [
-            '✍️ Author'    => esc_html( $author_name ),
-            '🏢 Publisher' => esc_html( $publisher_name ),
-            '📅 Year'      => esc_html( $m['bs_published_year'] ?: '—' ),
-            '📖 Pages'     => esc_html( $m['bs_pages'] ?: '—' ),
-            '🌐 Language'  => esc_html( $m['bs_language'] ?: '—' ),
-            '🔢 ISBN'      => esc_html( $m['bs_isbn'] ?: '—' ),
+            '✍️ Author(s)'  => esc_html( $author_str ),
+            '🏢 Publisher'  => esc_html( $publisher_name ),
+            '📅 Year'       => esc_html( $m['bs_published_year'] ?: '—' ),
+            '📖 Pages'      => esc_html( $m['bs_pages'] ?: '—' ),
+            '🌐 Language'   => esc_html( $m['bs_language'] ?: '—' ),
+            '🔢 ISBN'       => esc_html( $m['bs_isbn'] ?: '—' ),
         ];
         foreach ( $rows as $label => $value ) {
             printf(
@@ -278,11 +356,11 @@ class BookCPT {
     public static function render_book_code_box( \WP_Post $post ): void {
         $code = get_post_meta( $post->ID, 'bs_unique_code', true );
         if ( $code ) {
-            echo '<p style="text-align:center;margin:8px 0">';
-            echo '<code style="font-size:20px;font-weight:700;color:#5B5EDE;background:#EEF0FF;padding:8px 16px;border-radius:8px;letter-spacing:2px">';
-            echo esc_html( $code );
-            echo '</code></p>';
-            echo '<p style="font-size:12px;color:#6B7280;text-align:center;margin-top:8px">Auto-generated · read-only</p>';
+            echo '<p style="text-align:center;margin:8px 0">
+                <code style="font-size:20px;font-weight:700;color:#5B5EDE;background:#EEF0FF;padding:8px 16px;border-radius:8px;letter-spacing:2px">'
+                . esc_html( $code ) .
+                '</code></p>
+                <p style="font-size:12px;color:#6B7280;text-align:center;margin-top:8px">Auto-generated · read-only</p>';
         } else {
             echo '<p style="font-size:13px;color:#6B7280;text-align:center">Will be generated on first save.</p>';
         }
@@ -291,10 +369,10 @@ class BookCPT {
     // ── Save Meta ─────────────────────────────────────────────────────────────
     public static function save_meta( int $post_id, \WP_Post $post ): void {
         if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
-        if ( wp_is_post_revision( $post_id ) )                  return;
-        if ( $post->post_type !== self::BOOK_CPT )              return;
-        if ( ! current_user_can( 'edit_post', $post_id ) )      return;
-        if ( ! isset( $_POST['bs_book_nonce'] ) )               return;
+        if ( wp_is_post_revision( $post_id ) )                return;
+        if ( $post->post_type !== self::BOOK_CPT )            return;
+        if ( ! current_user_can( 'edit_post', $post_id ) )    return;
+        if ( ! isset( $_POST['bs_book_nonce'] ) )             return;
         if ( ! wp_verify_nonce( $_POST['bs_book_nonce'], 'bs_book_meta' ) ) return;
 
         // Generate unique code once
@@ -302,24 +380,25 @@ class BookCPT {
             update_post_meta( $post_id, 'bs_unique_code', self::generate_code() );
         }
 
-        // Text / URL fields
-        $text_fields = [ 'bs_genre', 'bs_isbn', 'bs_language' ];
-        foreach ( $text_fields as $key ) {
+        // Multiple authors — store as comma-separated IDs
+        $raw_author_ids = isset( $_POST['bs_author_ids'] ) && is_array( $_POST['bs_author_ids'] )
+            ? array_filter( array_map( 'intval', $_POST['bs_author_ids'] ) )
+            : [];
+        update_post_meta( $post_id, 'bs_author_ids', implode( ',', $raw_author_ids ) );
+
+        // Keep bs_author_id as the first author for backwards compatibility
+        update_post_meta( $post_id, 'bs_author_id', $raw_author_ids ? reset( $raw_author_ids ) : 0 );
+
+        // Text fields
+        foreach ( [ 'bs_isbn', 'bs_language' ] as $key ) {
             update_post_meta( $post_id, $key, sanitize_text_field( $_POST[ $key ] ?? '' ) );
         }
 
-        $url_fields = [ 'bs_cover_url' ];
-        foreach ( $url_fields as $key ) {
-            update_post_meta( $post_id, $key, esc_url_raw( $_POST[ $key ] ?? '' ) );
-        }
+        // Textarea
+        update_post_meta( $post_id, 'bs_description', sanitize_textarea_field( $_POST['bs_description'] ?? '' ) );
 
-        $textarea_fields = [ 'bs_description' ];
-        foreach ( $textarea_fields as $key ) {
-            update_post_meta( $post_id, $key, sanitize_textarea_field( $_POST[ $key ] ?? '' ) );
-        }
-
-        $int_fields = [ 'bs_author_id', 'bs_publisher_id', 'bs_published_year', 'bs_pages' ];
-        foreach ( $int_fields as $key ) {
+        // Integer fields
+        foreach ( [ 'bs_publisher_id', 'bs_published_year', 'bs_pages' ] as $key ) {
             $val = intval( $_POST[ $key ] ?? 0 );
             if ( $val > 0 ) {
                 update_post_meta( $post_id, $key, $val );
@@ -332,33 +411,29 @@ class BookCPT {
     // ── Admin List Columns ────────────────────────────────────────────────────
     public static function book_columns( array $cols ): array {
         return [
-            'cb'              => $cols['cb'],
-            'bs_cover'        => __( 'Cover',     'bookshare' ),
-            'title'           => __( 'Title',     'bookshare' ),
-            'bs_unique_code'  => __( 'Code',      'bookshare' ),
-            'bs_author'       => __( 'Author',    'bookshare' ),
-            'bs_publisher'    => __( 'Publisher', 'bookshare' ),
-            'bs_genre'        => __( 'Genre',     'bookshare' ),
-            'bs_year'         => __( 'Year',      'bookshare' ),
-            'date'            => __( 'Added',     'bookshare' ),
+            'cb'             => $cols['cb'],
+            'bs_cover'       => __( 'Cover',     'bookshare' ),
+            'title'          => __( 'Title',     'bookshare' ),
+            'bs_unique_code' => __( 'Code',      'bookshare' ),
+            'bs_author'      => __( 'Author(s)', 'bookshare' ),
+            'bs_publisher'   => __( 'Publisher', 'bookshare' ),
+            'bs_year'        => __( 'Year',      'bookshare' ),
+            'date'           => __( 'Added',     'bookshare' ),
         ];
     }
 
     public static function sortable_columns( array $cols ): array {
-        $cols['bs_year']  = 'bs_year';
-        $cols['bs_genre'] = 'bs_genre';
+        $cols['bs_year'] = 'bs_year';
         return $cols;
     }
 
     public static function book_column_data( string $col, int $post_id ): void {
         switch ( $col ) {
             case 'bs_cover':
-                $url = get_post_meta( $post_id, 'bs_cover_url', true );
-                if ( $url ) {
-                    echo '<img src="' . esc_url( $url ) . '" style="width:36px;height:50px;object-fit:cover;border-radius:4px;border:1px solid #E5E7F0">';
-                } else {
-                    echo '📚';
-                }
+                $thumb = get_the_post_thumbnail( $post_id, [ 36, 50 ] );
+                echo $thumb
+                    ? '<span style="display:inline-block;width:36px;height:50px;overflow:hidden;border-radius:4px;border:1px solid #E5E7F0;line-height:0">' . $thumb . '</span>'
+                    : '📚';
                 break;
 
             case 'bs_unique_code':
@@ -368,15 +443,17 @@ class BookCPT {
                 break;
 
             case 'bs_author':
-                $author_id = (int) get_post_meta( $post_id, 'bs_author_id', true );
-                if ( $author_id ) {
-                    $link = get_edit_post_link( $author_id );
-                    echo $link
-                        ? '<a href="' . esc_url( $link ) . '">' . esc_html( get_the_title( $author_id ) ) . '</a>'
-                        : esc_html( get_the_title( $author_id ) );
-                } else {
-                    echo '—';
+                $ids   = array_filter( array_map( 'intval',
+                    explode( ',', get_post_meta( $post_id, 'bs_author_ids', true ) )
+                ) );
+                $names = [];
+                foreach ( $ids as $id ) {
+                    $link    = get_edit_post_link( $id );
+                    $names[] = $link
+                        ? '<a href="' . esc_url( $link ) . '">' . esc_html( get_the_title( $id ) ) . '</a>'
+                        : esc_html( get_the_title( $id ) );
                 }
+                echo $names ? implode( ', ', $names ) : '—';
                 break;
 
             case 'bs_publisher':
@@ -391,73 +468,18 @@ class BookCPT {
                 }
                 break;
 
-            case 'bs_genre':
-                echo esc_html( get_post_meta( $post_id, 'bs_genre', true ) ?: '—' );
-                break;
-
             case 'bs_year':
                 echo esc_html( get_post_meta( $post_id, 'bs_published_year', true ) ?: '—' );
                 break;
         }
     }
 
-    // ── Admin Styles ──────────────────────────────────────────────────────────
-    public static function admin_head_styles(): void {
-        $screen = get_current_screen();
-        if ( ! $screen || $screen->post_type !== self::BOOK_CPT ) return;
-        ?>
-        <style>
-        /* BookCircle Book CPT Styles — reuses bs-metabox-grid from PostTypes */
-        .bs-metabox-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            padding: 4px 0;
-        }
-        .bs-meta-row    { display: flex; flex-direction: column; gap: 5px; }
-        .bs-meta-full   { grid-column: 1 / -1; }
-        .bs-meta-label  {
-            font-size: 12px; font-weight: 700; color: #1E1E2E;
-            text-transform: uppercase; letter-spacing: 0.4px;
-        }
-        .bs-meta-input,
-        .bs-meta-textarea {
-            padding: 8px 12px;
-            border: 1.5px solid #E5E7F0;
-            border-radius: 7px;
-            font-size: 14px;
-            font-family: inherit;
-            background: #F8F9FF;
-            transition: border-color .15s, box-shadow .15s;
-            width: 100%;
-        }
-        .bs-meta-input:focus,
-        .bs-meta-textarea:focus {
-            outline: none;
-            border-color: #5B5EDE;
-            background: #fff;
-            box-shadow: 0 0 0 3px rgba(91,94,222,.1);
-        }
-        .bs-meta-textarea { resize: vertical; }
-        select.bs-meta-input { cursor: pointer; }
-        #bs_book_details .inside,
-        #bs_book_publishing .inside,
-        #bs_book_code .inside { padding: 16px; }
-
-        /* Column widths */
-        .column-bs_cover       { width: 52px; }
-        .column-bs_unique_code { width: 120px; }
-        .column-bs_year        { width: 60px; }
-        </style>
-        <?php
-    }
-
     // ── Helpers ───────────────────────────────────────────────────────────────
     private static function get_meta( int $post_id ): array {
         $keys = [
-            'bs_unique_code', 'bs_author_id', 'bs_publisher_id',
-            'bs_genre', 'bs_isbn', 'bs_published_year', 'bs_pages',
-            'bs_language', 'bs_cover_url', 'bs_description',
+            'bs_unique_code', 'bs_author_ids', 'bs_author_id', 'bs_publisher_id',
+            'bs_isbn', 'bs_published_year', 'bs_pages',
+            'bs_language', 'bs_description',
         ];
         $out = [];
         foreach ( $keys as $key ) {
@@ -466,9 +488,6 @@ class BookCPT {
         return $out;
     }
 
-    /**
-     * Generate a unique 8-character alphanumeric code.
-     */
     public static function generate_code(): string {
         $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         do {
@@ -476,7 +495,6 @@ class BookCPT {
             for ( $i = 0; $i < 8; $i++ ) {
                 $code .= $chars[ random_int( 0, strlen( $chars ) - 1 ) ];
             }
-            // Ensure uniqueness across all bs_book posts
             $existing = get_posts( [
                 'post_type'      => self::BOOK_CPT,
                 'posts_per_page' => 1,
@@ -486,26 +504,9 @@ class BookCPT {
                 'fields'         => 'ids',
             ] );
         } while ( ! empty( $existing ) );
-
         return $code;
     }
 
-    /**
-     * Query helper — mirrors the old Model::get_all() interface so you can
-     * drop-in replace calls in REST controllers / shortcodes.
-     *
-     * Returns WP_Post objects augmented with author_name, publisher_name,
-     * and all bs_ meta keys as direct properties.
-     *
-     * @param array $args {
-     *   string $search       Full-text search against title / author / genre / isbn
-     *   string $genre        Filter by exact genre
-     *   int    $per_page     Posts per page (default 20)
-     *   int    $paged        Page number      (default 1)
-     *   int    $author_id    Filter by bs_author post ID
-     *   int    $publisher_id Filter by bs_publisher post ID
-     * }
-     */
     public static function get_all( array $args = [] ): array {
         $query_args = [
             'post_type'      => self::BOOK_CPT,
@@ -522,27 +523,20 @@ class BookCPT {
 
         $meta_query = [];
 
-        if ( ! empty( $args['genre'] ) ) {
-            $meta_query[] = [
-                'key'   => 'bs_genre',
-                'value' => sanitize_text_field( $args['genre'] ),
-            ];
-        }
-
         if ( ! empty( $args['author_id'] ) ) {
             $meta_query[] = [
-                'key'   => 'bs_author_id',
-                'value' => intval( $args['author_id'] ),
-                'type'  => 'NUMERIC',
+                'relation' => 'OR',
+                [ 'key' => 'bs_author_id',  'value' => intval( $args['author_id'] ), 'type' => 'NUMERIC' ],
+                [ 'key' => 'bs_author_ids', 'value' => (string) intval( $args['author_id'] ), 'compare' => 'LIKE' ],
             ];
         }
 
         if ( ! empty( $args['publisher_id'] ) ) {
-            $meta_query[] = [
-                'key'   => 'bs_publisher_id',
-                'value' => intval( $args['publisher_id'] ),
-                'type'  => 'NUMERIC',
-            ];
+            $meta_query[] = [ 'key' => 'bs_publisher_id', 'value' => intval( $args['publisher_id'] ), 'type' => 'NUMERIC' ];
+        }
+
+        if ( ! empty( $args['tax_query'] ) ) {
+            $query_args['tax_query'] = $args['tax_query'];
         }
 
         if ( $meta_query ) {
@@ -550,18 +544,12 @@ class BookCPT {
         }
 
         $posts = get_posts( $query_args );
-
-        // Hydrate each post with meta + resolved names
         foreach ( $posts as $post ) {
             self::hydrate( $post );
         }
-
         return $posts;
     }
 
-    /**
-     * Get a single book by post ID, hydrated with meta.
-     */
     public static function get_by_id( int $post_id ): ?\WP_Post {
         $post = get_post( $post_id );
         if ( ! $post || $post->post_type !== self::BOOK_CPT ) return null;
@@ -569,9 +557,6 @@ class BookCPT {
         return $post;
     }
 
-    /**
-     * Get a single book by unique_code, hydrated with meta.
-     */
     public static function get_by_code( string $code ): ?\WP_Post {
         $posts = get_posts( [
             'post_type'      => self::BOOK_CPT,
@@ -585,17 +570,12 @@ class BookCPT {
         return $posts[0];
     }
 
-    /**
-     * Attach all meta values + resolved author/publisher names to a WP_Post object.
-     */
     private static function hydrate( \WP_Post $post ): void {
         $meta = get_post_meta( $post->ID );
-        $scalar_keys = [
-            'bs_unique_code', 'bs_genre', 'bs_isbn', 'bs_language',
-            'bs_cover_url',   'bs_description',
-        ];
+
+        $scalar_keys = [ 'bs_unique_code', 'bs_isbn', 'bs_language', 'bs_description', 'bs_author_ids' ];
         foreach ( $scalar_keys as $key ) {
-            $post->$key = isset( $meta[ $key ][0] ) ? $meta[ $key ][0] : '';
+            $post->$key = $meta[ $key ][0] ?? '';
         }
 
         $int_keys = [ 'bs_author_id', 'bs_publisher_id', 'bs_published_year', 'bs_pages' ];
@@ -603,48 +583,43 @@ class BookCPT {
             $post->$key = isset( $meta[ $key ][0] ) ? (int) $meta[ $key ][0] : 0;
         }
 
-        // Resolved display names
-        $post->author_name    = $post->bs_author_id    ? get_the_title( $post->bs_author_id )    : '';
+        // Multiple authors
+        $author_ids = array_filter( array_map( 'intval', explode( ',', $post->bs_author_ids ) ) );
+        $post->author_names = array_filter( array_map( fn( $id ) => get_the_title( $id ), $author_ids ) );
+        $post->author_name  = $post->author_names ? implode( ', ', $post->author_names ) : '';
+
         $post->publisher_name = $post->bs_publisher_id ? get_the_title( $post->bs_publisher_id ) : '';
 
-        // Alias for template compatibility
-        $post->title         = $post->post_title;
-        $post->cover_url     = $post->bs_cover_url;
-        $post->genre         = $post->bs_genre;
+        // Cover from featured image
+        $post->cover_url = get_the_post_thumbnail_url( $post->ID, 'medium' ) ?: '';
+
+        // Aliases
+        $post->title          = $post->post_title;
         $post->published_year = $post->bs_published_year;
-        $post->unique_code   = $post->bs_unique_code;
+        $post->unique_code    = $post->bs_unique_code;
+
+        // Taxonomy terms
+        $post->tags       = wp_get_post_terms( $post->ID, 'bs_book_tag',      [ 'fields' => 'names' ] );
+        $post->categories = wp_get_post_terms( $post->ID, 'bs_book_category', [ 'fields' => 'names' ] );
     }
 
-    /**
-     * Count books matching optional filters (mirrors old Model::count()).
-     */
     public static function count( array $args = [] ): int {
-        $query_args             = $args;
-        $query_args['per_page'] = -1;
-        $query_args['paged']    = 1;
-        // Use the same WP_Query path but only fetch IDs
-        $q = new \WP_Query( array_merge(
-            [
-                'post_type'      => self::BOOK_CPT,
-                'post_status'    => 'publish',
-                'posts_per_page' => -1,
-                'fields'         => 'ids',
-            ],
-            ! empty( $args['search'] ) ? [ 's' => sanitize_text_field( $args['search'] ) ] : [],
-            ! empty( $args['genre'] )  ? [ 'meta_query' => [ [ 'key' => 'bs_genre', 'value' => $args['genre'] ] ] ] : []
-        ) );
+        $q = new \WP_Query( [
+            'post_type'      => self::BOOK_CPT,
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+        ] );
         return (int) $q->found_posts;
     }
 
-    /**
-     * List all distinct genres.
-     */
     public static function genres(): array {
-        global $wpdb;
-        return $wpdb->get_col(
-            "SELECT DISTINCT meta_value FROM {$wpdb->postmeta}
-             WHERE meta_key = 'bs_genre' AND meta_value != ''
-             ORDER BY meta_value"
-        );
+        $terms = get_terms( [ 'taxonomy' => 'bs_book_category', 'hide_empty' => false, 'fields' => 'names' ] );
+        return is_wp_error( $terms ) ? [] : $terms;
+    }
+
+    // Cover URL helper for external use
+    public static function get_cover_url( int $post_id, string $size = 'medium' ): string {
+        return get_the_post_thumbnail_url( $post_id, $size ) ?: '';
     }
 }
