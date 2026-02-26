@@ -1,7 +1,6 @@
 <?php defined('ABSPATH') || exit; ?>
 <div class="wrap bs-admin-wrap">
 <div class="bs-admin-notices"></div>
-
 <div class="bs-admin-header">
     <span class="bs-admin-logo">⚙️</span>
     <div>
@@ -9,7 +8,6 @@
         <p class="bs-admin-subtitle">Configure BookCircle behavior</p>
     </div>
 </div>
-
 <div class="bs-admin-card">
     <div class="bs-admin-card-header">
         <h2 class="bs-admin-card-title">Plugin Settings</h2>
@@ -28,7 +26,6 @@
                     <input type="number" name="books_per_page" value="<?php echo esc_attr(get_option('bs_books_per_page', 12)); ?>" min="4" max="100" style="width:80px;padding:7px 10px;border:1.5px solid var(--bs-border);border-radius:7px;font-size:14px">
                 </div>
             </div>
-
             <div class="bs-settings-section">
                 <h3>🔒 Permissions</h3>
                 <div class="bs-settings-row">
@@ -46,7 +43,6 @@
                     <input type="checkbox" name="require_approval" value="1" <?php checked(get_option('bs_require_approval', 0), 1); ?> style="width:18px;height:18px;cursor:pointer">
                 </div>
             </div>
-
             <div class="bs-settings-section">
                 <h3>🔌 Shortcodes</h3>
                 <p style="font-size:14px;color:#6B7280">Use these shortcodes on any page or post:</p>
@@ -69,11 +65,9 @@
                     </tr>
                 </table>
             </div>
-
             <div style="margin-top:24px">
                 <button type="submit" name="bs_save_settings" class="bs-admin-btn bs-admin-btn-primary">💾 Save Settings</button>
             </div>
         </form>
     </div>
 </div>
-
