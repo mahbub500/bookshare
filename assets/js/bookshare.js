@@ -139,7 +139,6 @@
     }
 
     function bookCardHtml(book) {
-        console.log( book );
         const addBtn = IS_LOGGED_IN
             ? `<button class="bs-btn bs-btn-primary bs-btn-sm" data-action="add-library" data-id="${esc(book.ID)}">+ My Library</button>`
             : '';
@@ -621,7 +620,7 @@
 (function ($) {
 
     $(function () {
-
+        
         const cookieName = 'bs_active_tab';
 
         // Cookie helpers

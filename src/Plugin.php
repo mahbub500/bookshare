@@ -72,7 +72,7 @@ final class Plugin {
         wp_enqueue_script(
             'bookshare-js',
             BS_URL . 'assets/js/bookshare.js',
-            [],
+            ['jquery'],
             BS_VERSION,
             true
         );
