@@ -186,3 +186,142 @@
 .bs-admin-notice { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
 .bs-admin-notice-success { background: #D1FAE5; color: #065F46; }
 .bs-admin-notice-error   { background: #FEE2E2; color: #991B1B; }
+
+/* =====================================================================
+   Analytics Styles
+   ===================================================================== */
+
+/* Analytics Grid */
+.bs-analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.bs-analytics-item {
+    background: var(--bs-bg);
+    border: 1px solid var(--bs-border);
+    border-radius: 10px;
+    padding: 16px;
+}
+
+.bs-analytics-label {
+    font-size: 13px;
+    color: var(--bs-muted);
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.bs-analytics-value {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--bs-primary);
+    line-height: 1;
+    margin-bottom: 12px;
+}
+
+.bs-analytics-bar {
+    height: 8px;
+    background: var(--bs-border);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.bs-analytics-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--bs-primary), #7C7FFF);
+    border-radius: 100px;
+    transition: width 0.4s ease;
+}
+
+.bs-analytics-percent {
+    font-size: 12px;
+    color: var(--bs-muted);
+    font-weight: 600;
+}
+
+/* Analytics Section */
+.bs-analytics-section {
+    padding: 20px;
+    border-top: 1px solid var(--bs-border);
+}
+
+.bs-analytics-section-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 16px;
+    color: var(--bs-text);
+}
+
+/* Tag Cloud */
+.bs-tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.bs-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bs-primary-lt);
+    color: var(--bs-primary);
+    border-radius: 100px;
+    font-size: calc(12px * var(--tag-size, 1));
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+
+.bs-tag:hover {
+    background: var(--bs-primary);
+    color: #fff;
+}
+
+.bs-tag-count {
+    background: #fff;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Analytics List */
+.bs-analytics-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.bs-analytics-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--bs-border);
+    transition: background 0.15s ease;
+}
+
+.bs-analytics-list-item:last-child {
+    border-bottom: none;
+}
+
+.bs-analytics-list-item:hover {
+    background: var(--bs-primary-lt);
+}
+
+.bs-analytics-list-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--bs-text);
+}
+
+.bs-analytics-list-count {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--bs-primary);
+    background: var(--bs-primary-lt);
+    padding: 4px 12px;
+    border-radius: 100px;
+}
