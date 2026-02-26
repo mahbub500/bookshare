@@ -345,7 +345,7 @@ class UserLibrary {
 
         // Warm book meta cache (avoids individual get_post_meta queries per row)
         if ( ! empty( $book_posts_raw ) ) {
-            update_post_meta_cache( wp_list_pluck( $book_posts_raw, 'ID' ) );
+            update_meta_cache( 'post', wp_list_pluck( $book_posts_raw, 'ID' ) );
         }
 
         // Index books by post ID for O(1) access
@@ -372,7 +372,7 @@ class UserLibrary {
                 'post__in'       => array_values( $author_ids ),
                 'orderby'        => 'post__in',
             ] );
-            update_post_meta_cache( wp_list_pluck( $author_posts_raw, 'ID' ) );
+            update_meta_cache( 'post', wp_list_pluck( $author_posts_raw, 'ID' ) );
         }
 
         // ── 5. Collect all distinct publisher post IDs from book meta ─────────
