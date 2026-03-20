@@ -1,0 +1,249 @@
+/* ==========================================================================
+   BookCircle — Rokomari Importer  (assets/css/importer.css)
+   ========================================================================== */
+
+/* ── Page wrapper ─────────────────────────────────────────────────────────── */
+.bs-import-wrap {
+    max-width: 980px;
+}
+
+/* ── Page header ─────────────────────────────────────────────────────────── */
+.bs-import-header {
+    margin-bottom: 20px;
+}
+.bs-import-header h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e1e2d;
+    margin-bottom: 6px;
+}
+.bs-import-icon {
+    font-size: 26px;
+    line-height: 1;
+}
+.bs-import-header p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+}
+
+/* ── Input card ──────────────────────────────────────────────────────────── */
+.bs-import-card {
+    background: #ffffff;
+    border: 1px solid #e2e4ea;
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 28px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Field group ─────────────────────────────────────────────────────────── */
+.bs-import-field label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+.bs-import-hint {
+    font-weight: 400;
+    color: #9ca3af;
+    margin-left: 4px;
+}
+
+#bs-import-urls {
+    width: 100%;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #1e1e2d;
+    background: #f8f9ff;
+    border: 1.5px solid #d0d5dd;
+    border-radius: 8px;
+    padding: 12px 14px;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+#bs-import-urls:focus {
+    border-color: #5B5EDE;
+    background: #ffffff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(91, 94, 222, 0.12);
+}
+
+.bs-import-note {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 8px 0 0;
+}
+
+/* ── Action row ──────────────────────────────────────────────────────────── */
+.bs-import-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+}
+
+.bs-btn-import {
+    font-size: 14px !important;
+    padding: 7px 24px !important;
+    height: auto !important;
+    border-radius: 7px !important;
+    font-weight: 600 !important;
+    background: #5B5EDE !important;
+    border-color: #4b4ec9 !important;
+    color: #fff !important;
+    transition: background 0.15s !important;
+}
+.bs-btn-import:hover:not(:disabled) {
+    background: #4b4ec9 !important;
+}
+.bs-btn-import:disabled {
+    opacity: 0.65 !important;
+    cursor: not-allowed !important;
+}
+
+#bs-import-spinner {
+    float: none;
+    margin: 0;
+    vertical-align: middle;
+}
+
+.bs-import-progress {
+    font-size: 13px;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* ── Results section ─────────────────────────────────────────────────────── */
+.bs-results-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+.bs-results-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e1e2d;
+}
+
+.bs-import-summary {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    background: #f3f4f6;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+/* ── Results table ───────────────────────────────────────────────────────── */
+.bs-import-table {
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 13px;
+}
+.bs-import-table th {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+    background: #f8f9ff !important;
+    padding: 10px 12px !important;
+}
+
+/* Column widths */
+.bs-import-table .col-url       { width: 24%; }
+.bs-import-table .col-title     { width: 20%; }
+.bs-import-table .col-authors   { width: 18%; }
+.bs-import-table .col-publisher { width: 14%; }
+.bs-import-table .col-status    { width: 9%; }
+.bs-import-table .col-note      { width: 15%; }
+
+.bs-import-table td {
+    padding: 10px 12px !important;
+    vertical-align: middle;
+    word-break: break-word;
+}
+
+/* URL cell */
+.bs-import-table .cell-url {
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    color: #6b7280;
+    word-break: break-all;
+}
+.bs-import-table .cell-url a {
+    color: #5B5EDE;
+    text-decoration: none;
+}
+.bs-import-table .cell-url a:hover {
+    text-decoration: underline;
+}
+
+/* Title cell */
+.bs-import-table .cell-title a {
+    font-weight: 600;
+    color: #1e1e2d;
+    text-decoration: none;
+}
+.bs-import-table .cell-title a:hover {
+    color: #5B5EDE;
+    text-decoration: underline;
+}
+
+/* Authors cell */
+.bs-import-table .cell-authors {
+    color: #374151;
+}
+.bs-author-tag {
+    display: inline-block;
+    background: #eef0ff;
+    color: #3d3fa8;
+    border: 1px solid #c7c9f5;
+    border-radius: 4px;
+    font-size: 11px;
+    padding: 2px 7px;
+    margin: 2px 2px 2px 0;
+    white-space: nowrap;
+}
+
+/* Publisher cell */
+.bs-import-table .cell-publisher {
+    color: #374151;
+    font-size: 12px;
+}
+
+/* Status badges */
+.bs-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.bs-badge-imported {
+    background: #dcfce7;
+    color: #15803d;
+}
+.bs-badge-skipped {
+    background: #fef3c7;
+    color: #92400e;
+}
+.bs-badge-error {
+    background: #fee2e2;
+    color: #b91c1c;
+}1

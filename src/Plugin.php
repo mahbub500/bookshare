@@ -32,6 +32,8 @@ final class Plugin {
         add_action( 'admin_menu',      [ $this, 'register_admin_menu' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
 
+        add_action( 'rest_api_init', [ Controllers\ImportController::class, 'register_routes' ] );
+
         // Custom Post Types for Authors & Publishers        
         Cpt\BookCpt::register();
         Cpt\AuthorCpt::register();
@@ -52,6 +54,32 @@ final class Plugin {
     }
 
     public function enqueue_assets(): void {
+
+        if ( $hook !== 'bookshare_page_bookshare-import' ) {
+            wp_enqueue_style(
+                'bs-importer',
+                BS_URL . 'assets/css/importer.css',
+                [],
+                BS_VERSION
+            );
+
+            wp_enqueue_script(
+                'bs-importer',
+                BS_URL . 'assets/js/importer.js',
+                [ 'jquery' ],
+                BS_VERSION,
+                true  // load in footer
+            );
+
+            wp_localize_script( 'bs-importer', 'BSImporter', [
+                'endpoint' => rest_url( 'bookshare/v1/import/rokomari' ),
+                'nonce'    => wp_create_nonce( 'wp_rest' ),
+                'edit_url' => admin_url( 'post.php' ),
+            ] );
+
+
+        }
+
         global $post;
         $has_shortcode = is_a( $post, 'WP_Post' ) && (
             has_shortcode( $post->post_content, 'bookcircle' ) ||
@@ -153,6 +181,14 @@ final class Plugin {
         add_submenu_page( 'bookshare', __( 'Rentals',   'bookshare' ), __( 'Rentals',   'bookshare' ), 'manage_options', 'bookshare-rentals',      [ Controllers\AdminController::class, 'rentals_page' ] );
         add_submenu_page( 'bookshare', __( 'Members',   'bookshare' ), __( 'Members',   'bookshare' ), 'manage_options', 'bookshare-members',      [ Controllers\AdminController::class, 'members_page' ] );
         add_submenu_page( 'bookshare', __( 'Analytics',  'bookshare' ), __( 'Analytics',  'Analytics' ), 'manage_options', 'bookshare-analytics',     [ Controllers\AdminController::class, 'analytics_page' ] );
+        add_submenu_page(
+            'bookshare',
+            __( 'Import Books', 'bookshare' ),
+            __( '📥 Import Books', 'bookshare' ),
+            'manage_options',
+            'bookshare-import',
+            [ Controllers\ImportController::class, 'import_page' ]
+        );
 
         add_submenu_page( 'bookshare', __( 'Settings',  'bookshare' ), __( 'Settings',  'bookshare' ), 'manage_options', 'bookshare-settings',     [ Controllers\AdminController::class, 'settings_page' ] );
     }
