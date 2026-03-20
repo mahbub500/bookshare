@@ -111,7 +111,7 @@ class ImportController {
 
     private static function import_single( string $url ): array {
 
-        /* 1 ── Fetch ---------------------------------------------------------- */
+        /* 1 ── Fetch HTML page ----------------------------------------------- */
         $response = wp_remote_get( $url, [
             'timeout'    => 25,
             'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36',
@@ -137,32 +137,35 @@ class ImportController {
             return [ 'status' => 'error', 'message' => 'Empty response from Rokomari.' ];
         }
 
-        /* 2 ── Parse ---------------------------------------------------------- */
+        /* 2 ── Parse HTML + fetch API for spec data --------------------------- */
         $data = self::parse( $html, $url );
+
+        // Extract product ID from URL or parsed data, then hit the Rokomari
+        // product-details API which returns the full specification (ISBN etc.)
+        // as JSON — this is the same endpoint the browser JS calls to populate
+        // the Specification tab after page load.
+        $product_id = $data['rokomari_id'] ?? self::extract_product_id_from_url( $url );
+        if ( $product_id ) {
+            $api_data = self::fetch_rokomari_api( (int) $product_id );
+            if ( ! empty( $api_data ) ) {
+                // Merge: API values fill in any gaps left by HTML parsing.
+                // HTML-parsed values take priority (already sanitised).
+                foreach ( $api_data as $k => $v ) {
+                    if ( empty( $data[ $k ] ) && ! empty( $v ) ) {
+                        $data[ $k ] = $v;
+                    }
+                }
+            }
+        }
 
         if ( empty( $data['title'] ) ) {
             return [ 'status' => 'error', 'message' => 'Could not find book title on page.' ];
         }
 
-        /* 3 ── Duplicate check ----------------------------------------------- */
-        if ( ! empty( $data['isbn'] ) ) {
-            $dup = get_posts( [
-                'post_type'      => 'bs_book',
-                'post_status'    => 'any',
-                'posts_per_page' => 1,
-                'fields'         => 'ids',
-                'meta_key'       => 'bs_isbn',
-                'meta_value'     => $data['isbn'],
-                'no_found_rows'  => true,
-            ] );
-            if ( ! empty( $dup ) ) {
-                return [
-                    'status'  => 'skipped',
-                    'message' => 'Already exists (ISBN match).',
-                    'post_id' => $dup[0],
-                    'data'    => $data,
-                ];
-            }
+        /* 3 ── Duplicate check (3 levels) ------------------------------------ */
+        $dup_result = self::find_duplicate( $data );
+        if ( $dup_result ) {
+            return array_merge( [ 'status' => 'skipped', 'data' => $data ], $dup_result );
         }
 
         /* 4 ── Resolve / create ALL authors ----------------------------------- */
@@ -204,6 +207,12 @@ class ImportController {
         update_post_meta( $post_id, 'bs_description',    sanitize_textarea_field( $data['description'] ?? '' ) );
         update_post_meta( $post_id, 'bs_published_year', intval( $data['published_year']               ?? 0 ) );
         update_post_meta( $post_id, 'bs_pages',          intval( $data['pages']                        ?? 0 ) );
+        // Save Rokomari product ID — used as the most reliable dedup key on re-import
+        if ( ! empty( $data['rokomari_id'] ) ) {
+            update_post_meta( $post_id, 'bs_rokomari_id', sanitize_text_field( $data['rokomari_id'] ) );
+        }
+        // Save source URL for reference / audit trail
+        update_post_meta( $post_id, 'bs_source_url', esc_url_raw( $url ) );
 
         /* 8 ── Author meta (multiple) ----------------------------------------- */
         if ( ! empty( $author_ids ) ) {
@@ -376,38 +385,79 @@ class ImportController {
         }
 
         // ── Description ───────────────────────────────────────────────────────
-        $desc = $xp->query( '//*[@id="js--short-description"]' );
-        if ( $desc && $desc->length ) {
-            $clone = $desc->item(0)->cloneNode( true );
+        // Try the full summary section first (rendered page), fallback to short desc
+        $desc_full = $xp->query( '//*[@id="js--summary-description"]' );
+        if ( $desc_full && $desc_full->length ) {
+            $clone = $desc_full->item(0)->cloneNode( true );
             foreach ( iterator_to_array( $xp->query( './/a', $clone ) ) as $a ) {
                 $a->parentNode->removeChild( $a );
             }
-            $data['description'] = trim( $clone->textContent );
+            $raw_desc = trim( $clone->textContent );
+            if ( $raw_desc ) {
+                $data['description'] = $raw_desc;
+            }
+        }
+        if ( empty( $data['description'] ) ) {
+            $desc_short = $xp->query( '//*[@id="js--short-description"]' );
+            if ( $desc_short && $desc_short->length ) {
+                $clone = $desc_short->item(0)->cloneNode( true );
+                foreach ( iterator_to_array( $xp->query( './/a', $clone ) ) as $a ) {
+                    $a->parentNode->removeChild( $a );
+                }
+                $data['description'] = trim( $clone->textContent );
+            }
         }
 
-        // ── Publisher — dedicated XPath (before table scan) ───────────────────
-        $pub_xpaths = [
-            '//td[contains(translate(normalize-space(.),"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz"),"publisher")]/following-sibling::td[1]',
-            '//th[contains(translate(normalize-space(.),"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz"),"publisher")]/following-sibling::td[1]',
-        ];
-        foreach ( $pub_xpaths as $xpath_str ) {
-            $nodes = $xp->query( $xpath_str );
-            if ( $nodes && $nodes->length ) {
-                $val = trim( $nodes->item(0)->textContent );
-                if ( $val ) {
-                    $data['publisher_name'] = sanitize_text_field( $val );
-                    break;
+        // ── ISBN from <meta property="og:..."> or JSON-LD ────────────────────
+        // Rokomari does NOT put ISBN in the visible table for all books,
+        // but it appears in the og:description or JSON-LD on some pages.
+        // Primary source: the specification table (handled below).
+        // Fallback: scan <script type="application/ld+json"> for isbn.
+        if ( empty( $data['isbn'] ) ) {
+            $scripts = $xp->query( '//script[@type="application/ld+json"]' );
+            if ( $scripts ) {
+                foreach ( $scripts as $script ) {
+                    $json = json_decode( trim( $script->textContent ), true );
+                    if ( is_array( $json ) ) {
+                        foreach ( [ 'isbn', 'gtin13', 'gtin' ] as $k ) {
+                            if ( ! empty( $json[ $k ] ) ) {
+                                $data['isbn'] = sanitize_text_field( $json[ $k ] );
+                                break 2;
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // ── Detail table rows ─────────────────────────────────────────────────
-        $rows = $xp->query(
-            '//section[@id="summary"]//tr | //div[@id="summary"]//tr |
+        // ── Specification table inside #book-additional-specification ─────────
+        //
+        // Rokomari's full HTML structure (document 11):
+        //   <div id="book-additional-specification">
+        //     <table class="table table-bordered">
+        //       <tr><td>Title</td>          <td>ইউ মাস্ট ডু বিজনেস</td></tr>
+        //       <tr><td>Author</td>         <td>...</td></tr>
+        //       <tr><td>Editor</td>         <td>...</td></tr>
+        //       <tr><td>Publisher</td>      <td><a>সমকালীন প্রকাশন</a></td></tr>
+        //       <tr><td>Edition</td>        <td>1st Published, 2022</td></tr>
+        //       <tr><td>Number of Pages</td><td>32</td></tr>
+        //       <tr><td>Country</td>        <td>বাংলাদেশ</td></tr>
+        //       <tr><td>Language</td>       <td>বাংলা</td></tr>
+        //     </table>
+        //   </div>
+        //
+        // We query ALL tables on the page so this works regardless of
+        // whether the tab content is rendered server-side or injected by JS.
+
+        $spec_rows = $xp->query(
+            '//*[@id="book-additional-specification"]//tr |
+             //section[@id="summary"]//tr              |
+             //div[@id="summary"]//tr                  |
+             //table[contains(@class,"table-bordered")]//tr |
              //table[contains(@class,"table-book-details")]//tr'
         );
-        if ( $rows ) {
-            foreach ( $rows as $row ) {
+        if ( $spec_rows ) {
+            foreach ( $spec_rows as $row ) {
                 $tds = $xp->query( './/td', $row );
                 if ( ! $tds || $tds->length < 2 ) {
                     continue;
@@ -459,9 +509,9 @@ class ImportController {
                 'published year'   => 'published_year',
                 'published'        => 'published_year',
                 'year'             => 'published_year',
+                'edition'          => 'edition_raw',   // special handling below
                 'language'         => 'language',
                 'publisher'        => 'publisher_name',
-                'edition'          => 'edition',
                 'country'          => 'country',
                 // Bangla labels
                 "\u09AA\u09CD\u09B0\u0995\u09BE\u09B6\u09A8\u09C0" => 'publisher_name',
@@ -473,15 +523,29 @@ class ImportController {
 
         foreach ( $patterns as $keyword => $field ) {
             if ( str_contains( $label, $keyword ) ) {
-                // Don't overwrite publisher already found by XPath
+                // Don't overwrite publisher already found
                 if ( $field === 'publisher_name' && ! empty( $data['publisher_name'] ) ) {
                     return;
                 }
+
                 if ( in_array( $field, [ 'pages', 'published_year' ], true ) ) {
+                    // Extract digits only (handles "32 pages", "32" etc.)
                     $num = (int) preg_replace( '/\D/', '', $value );
                     if ( $num ) {
                         $data[ $field ] = $num;
                     }
+
+                } elseif ( $field === 'edition_raw' ) {
+                    // Edition cell value: "1st Published, 2022"  or  "2nd Edition, 2019"
+                    // Extract the 4-digit year and store as published_year if not already set.
+                    if ( empty( $data['published_year'] ) ) {
+                        if ( preg_match( '/\b(19|20)\d{2}\b/', $value, $m ) ) {
+                            $data['published_year'] = (int) $m[0];
+                        }
+                    }
+                    // Also store the raw edition string for reference
+                    $data['edition'] = sanitize_text_field( $value );
+
                 } else {
                     $data[ $field ] = sanitize_text_field( $value );
                 }
@@ -493,6 +557,109 @@ class ImportController {
     // =========================================================================
     // CPT HELPERS
     // =========================================================================
+
+    // =========================================================================
+    // DUPLICATE DETECTION  (3-level cascade)
+    // =========================================================================
+
+    /**
+     * Check if a book already exists before importing.
+     *
+     * Level 1 — Rokomari product ID (bs_rokomari_id meta)
+     *   Most reliable. Set on every book we previously imported.
+     *   Catches re-imports of the exact same product page immediately.
+     *
+     * Level 2 — ISBN (bs_isbn meta)
+     *   Reliable for books that have an ISBN.
+     *   Catches the same physical book imported from a different URL
+     *   (e.g. a cached/alternate Rokomari URL).
+     *
+     * Level 3 — Exact title + first author name (post_title + meta)
+     *   Fallback for books without ISBN (short booklets, pamphlets).
+     *   Only fires when levels 1 and 2 both miss.
+     *
+     * Returns null if no duplicate found.
+     * Returns array [ 'message' => '...', 'post_id' => int ] if found.
+     */
+    private static function find_duplicate( array $data ): ?array {
+
+        $base_args = [
+            'post_type'      => 'bs_book',
+            'post_status'    => 'any',
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+        ];
+
+        // ── Level 1: Rokomari product ID ──────────────────────────────────────
+        if ( ! empty( $data['rokomari_id'] ) ) {
+            $found = get_posts( array_merge( $base_args, [
+                'meta_key'   => 'bs_rokomari_id',
+                'meta_value' => sanitize_text_field( $data['rokomari_id'] ),
+            ] ) );
+            if ( ! empty( $found ) ) {
+                return [
+                    'message' => 'Skipped — already imported (Rokomari ID: ' . $data['rokomari_id'] . ').',
+                    'post_id' => (int) $found[0],
+                ];
+            }
+        }
+
+        // ── Level 2: ISBN ─────────────────────────────────────────────────────
+        if ( ! empty( $data['isbn'] ) ) {
+            $found = get_posts( array_merge( $base_args, [
+                'meta_key'   => 'bs_isbn',
+                'meta_value' => sanitize_text_field( $data['isbn'] ),
+            ] ) );
+            if ( ! empty( $found ) ) {
+                return [
+                    'message' => 'Skipped — already exists (ISBN: ' . $data['isbn'] . ').',
+                    'post_id' => (int) $found[0],
+                ];
+            }
+        }
+
+        // ── Level 3: Exact title + first author ───────────────────────────────
+        // Only run when no ISBN — avoids false positives on common titles.
+        if ( empty( $data['isbn'] ) && ! empty( $data['title'] ) ) {
+
+            $title_matches = get_posts( array_merge( $base_args, [
+                // WP 'title' arg does exact post_title match
+                'title' => sanitize_text_field( $data['title'] ),
+            ] ) );
+
+            if ( ! empty( $title_matches ) ) {
+                // Narrow down: also check the first author matches
+                $first_author = $data['author_names'][0] ?? '';
+
+                if ( ! $first_author ) {
+                    // No author to cross-check — treat title match as duplicate
+                    return [
+                        'message' => 'Skipped — same title already exists (no ISBN to confirm).',
+                        'post_id' => (int) $title_matches[0],
+                    ];
+                }
+
+                foreach ( $title_matches as $candidate_id ) {
+                    $saved_author_id = (int) get_post_meta( $candidate_id, 'bs_author_id', true );
+                    if ( ! $saved_author_id ) {
+                        continue;
+                    }
+                    $saved_author_title = get_the_title( $saved_author_id );
+                    // Case-insensitive, trim-safe comparison
+                    if ( mb_strtolower( trim( $saved_author_title ) ) === mb_strtolower( trim( $first_author ) ) ) {
+                        return [
+                            'message' => 'Skipped — same title + author already exists (no ISBN).',
+                            'post_id' => (int) $candidate_id,
+                        ];
+                    }
+                }
+                // Title matches but authors differ → treat as a different book (different edition/translation)
+            }
+        }
+
+        return null; // no duplicate found
+    }
 
     private static function get_or_create_author( string $name ): int {
         $name = sanitize_text_field( trim( $name ) );
@@ -555,6 +722,151 @@ class ImportController {
             require_once ABSPATH . 'wp-admin/includes/image.php';
         }
         return media_sideload_image( $url, $post_id, $title, 'id' );
+    }
+
+    // =========================================================================
+    // ROKOMARI API  — fetches the specification tab data as JSON
+    // =========================================================================
+
+    /**
+     * Extract the numeric product ID from a Rokomari book URL.
+     *
+     * URL patterns:
+     *   https://www.rokomari.com/book/225612/you-must-do-a-business
+     *   https://www.rokomari.com/book/225612
+     */
+    private static function extract_product_id_from_url( string $url ): ?string {
+        // Match /book/{digits} anywhere in the path
+        if ( preg_match( '#/book/(\d+)#', $url, $m ) ) {
+            return $m[1];
+        }
+        return null;
+    }
+
+    /**
+     * Call the Rokomari product-details API and return a normalised data array.
+     *
+     * Rokomari's frontend JS calls this endpoint to populate the Specification
+     * tab after page load. It returns structured JSON that includes ISBN,
+     * pages, language, publisher, edition and more — data that is NOT present
+     * in the raw server-rendered HTML that wp_remote_get() retrieves.
+     *
+     * Endpoint (observed from browser network tab):
+     *   GET https://www.rokomari.com/api/v1/book/product-details/{product_id}
+     *
+     * Returns a normalised array with the same keys as parse(), or [] on failure.
+     *
+     * Fields returned:
+     *   isbn, pages, published_year, language, publisher_name, edition
+     */
+    private static function fetch_rokomari_api( int $product_id ): array {
+        if ( ! $product_id ) {
+            return [];
+        }
+
+        $api_url = "https://www.rokomari.com/api/v1/book/product-details/{$product_id}";
+
+        $response = wp_remote_get( $api_url, [
+            'timeout'    => 15,
+            'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36',
+            'headers'    => [
+                'Accept'          => 'application/json, text/plain, */*',
+                'Accept-Language' => 'en-US,en;q=0.9',
+                'Referer'         => "https://www.rokomari.com/book/{$product_id}",
+                'X-Requested-With' => 'XMLHttpRequest',
+            ],
+            'sslverify'  => false,
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            return [];
+        }
+
+        if ( (int) wp_remote_retrieve_response_code( $response ) !== 200 ) {
+            return [];
+        }
+
+        $body = wp_remote_retrieve_body( $response );
+        if ( ! $body ) {
+            return [];
+        }
+
+        $json = json_decode( $body, true );
+        if ( ! is_array( $json ) ) {
+            return [];
+        }
+
+        // ── Map API response fields → our normalised keys ─────────────────────
+        //
+        // The Rokomari API response shape (observed):
+        // {
+        //   "data": {
+        //     "specification": [
+        //       { "label": "ISBN",            "value": "978-984-96459-0-1" },
+        //       { "label": "Number of Pages", "value": "32"                },
+        //       { "label": "Publisher",       "value": "সমকালীন প্রকাশন"  },
+        //       { "label": "Edition",         "value": "1st Published, 2022" },
+        //       { "label": "Language",        "value": "বাংলা"             },
+        //       { "label": "Country",         "value": "বাংলাদেশ"          }
+        //     ],
+        //     "isbn": "978-984-96459-0-1",   // sometimes top-level
+        //     "publisher": { "name": "..." },
+        //     ...
+        //   }
+        // }
+
+        $out = [];
+
+        // ── Top-level isbn field ──────────────────────────────────────────────
+        $root = $json['data'] ?? $json;
+
+        if ( ! empty( $root['isbn'] ) ) {
+            $out['isbn'] = sanitize_text_field( $root['isbn'] );
+        }
+
+        // ── Publisher name from nested object ─────────────────────────────────
+        if ( ! empty( $root['publisher']['name'] ) ) {
+            $out['publisher_name'] = sanitize_text_field( $root['publisher']['name'] );
+        }
+
+        // ── Specification array ───────────────────────────────────────────────
+        $specs = $root['specification'] ?? $root['specifications'] ?? [];
+        if ( is_array( $specs ) ) {
+            foreach ( $specs as $spec ) {
+                $label = strtolower( trim( $spec['label'] ?? $spec['name'] ?? '' ) );
+                $value = trim( $spec['value'] ?? $spec['val']  ?? '' );
+                if ( $label && $value ) {
+                    self::map_row( $label, $value, $out );
+                }
+            }
+        }
+
+        // ── Flat key scan (some API versions flatten everything) ──────────────
+        $flat_map = [
+            'isbn'           => 'isbn',
+            'isbn13'         => 'isbn',
+            'isbn_13'        => 'isbn',
+            'language'       => 'language',
+            'pages'          => 'pages',
+            'number_of_pages'=> 'pages',
+            'published_year' => 'published_year',
+            'edition'        => 'edition',
+        ];
+        foreach ( $flat_map as $api_key => $our_key ) {
+            if ( ! empty( $root[ $api_key ] ) && empty( $out[ $our_key ] ) ) {
+                $val = $root[ $api_key ];
+                if ( in_array( $our_key, [ 'pages', 'published_year' ], true ) ) {
+                    $num = (int) preg_replace( '/\D/', '', (string) $val );
+                    if ( $num ) {
+                        $out[ $our_key ] = $num;
+                    }
+                } else {
+                    $out[ $our_key ] = sanitize_text_field( (string) $val );
+                }
+            }
+        }
+
+        return $out;
     }
 
     private static function abs( string $src, string $base ): string {

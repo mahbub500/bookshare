@@ -236,6 +236,10 @@
             + '  \u274C ' + errors + ' errors'
         );
         $results.prop( 'hidden', false );
+
+        // Clear the textarea after import completes so the user
+        // can paste the next batch without manually selecting all.
+        $( '#bs-import-urls' ).val( '' ).trigger( 'input' );
     }
 
     // =========================================================================
