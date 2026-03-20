@@ -21,13 +21,117 @@
     const $tbody    = $( '#bs-import-tbody' );
     const $summary  = $( '#bs-import-summary' );
 
-    // ── Import click ──────────────────────────────────────────────────────────
+    // Modal refs
+    const $overlay  = $( '#bs-modal-overlay' );
+    const $mIcon    = $( '#bs-modal-icon' );
+    const $mTitle   = $( '#bs-modal-title' );
+    const $mMessage = $( '#bs-modal-message' );
+    const $mOk      = $( '#bs-modal-ok' );
+    const $mX       = $( '#bs-modal-x' );
+
+    // =========================================================================
+    // MODAL
+    // =========================================================================
+
+    /**
+     * showModal( options )
+     *
+     * options = {
+     *   type    : 'info' | 'warning' | 'error'   (default: 'info')
+     *   title   : string
+     *   message : string
+     * }
+     */
+    function showModal( options ) {
+        const type    = options.type    || 'info';
+        const title   = options.title   || '';
+        const message = options.message || '';
+
+        const iconMap = {
+            info    : '💬',
+            warning : '⚠️',
+            error   : '❌',
+            success : '✅',
+        };
+
+        // Set content
+        $mIcon.text( iconMap[ type ] || '💬' );
+        $mTitle.text( title );
+        $mMessage.text( message );
+
+        // Set colour modifier on modal box
+        $overlay.find( '.bs-modal' )
+            .removeClass( 'bs-modal--info bs-modal--warning bs-modal--error bs-modal--success' )
+            .addClass( 'bs-modal--' + type );
+
+        /*
+         * Open:
+         *   1. Remove [hidden] so the element re-enters the layout.
+         *   2. On the next animation frame, add .bs-modal-visible which:
+         *        - sets opacity:1  (fade in)
+         *        - sets pointer-events:auto  (page is interactive again)
+         *        - sets visibility:visible   (back in tab order)
+         *      Using rAF ensures the browser has painted the hidden→visible
+         *      state change before we trigger the CSS transition.
+         */
+        $overlay.prop( 'hidden', false );
+        requestAnimationFrame( function () {
+            $overlay.addClass( 'bs-modal-visible' );
+            // Focus OK button for keyboard / screen-reader accessibility
+            setTimeout( function () { $mOk.trigger( 'focus' ); }, 50 );
+        } );
+    }
+
+    function hideModal() {
+        /*
+         * Close:
+         *   1. Remove .bs-modal-visible — CSS transitions opacity to 0,
+         *      pointer-events back to none, visibility to hidden.
+         *      The overlay is now invisible AND non-interactive immediately.
+         *   2. After the transition (220ms), set [hidden] so it is fully
+         *      removed from layout / accessibility tree.
+         */
+        $overlay.removeClass( 'bs-modal-visible' );
+        setTimeout( function () {
+            $overlay.prop( 'hidden', true );
+        }, 230 );
+    }
+
+    // Close on OK button
+    $mOk.on( 'click', hideModal );
+
+    // Close on × button
+    $mX.on( 'click', hideModal );
+
+    // Close on overlay backdrop click (click outside the modal box)
+    $overlay.on( 'click', function ( e ) {
+        if ( $( e.target ).is( '#bs-modal-overlay' ) ) {
+            hideModal();
+        }
+    } );
+
+    // Close on Escape key
+    $( document ).on( 'keydown', function ( e ) {
+        if ( e.key === 'Escape' && ! $overlay.prop( 'hidden' ) ) {
+            hideModal();
+        }
+    } );
+
+    // =========================================================================
+    // IMPORT CLICK
+    // =========================================================================
+
     $btn.on( 'click', function () {
         const raw  = $( '#bs-import-urls' ).val().trim();
         const urls = parseUrls( raw );
 
         if ( ! urls.length ) {
-            alert( 'Please enter at least one Rokomari URL starting with https://' );
+            // ── was: alert('Please enter...') ─────────────────────────────────
+            showModal( {
+                type    : 'warning',
+                title   : 'No URLs entered',
+                message : 'Please enter at least one Rokomari URL starting with https://',
+            } );
             return;
         }
 
@@ -49,12 +153,20 @@
         } );
     } );
 
-    // ── Success handler ───────────────────────────────────────────────────────
+    // =========================================================================
+    // SUCCESS HANDLER
+    // =========================================================================
+
     function handleSuccess( response ) {
         setLoading( false, '' );
 
         if ( ! response || ! Array.isArray( response.results ) ) {
-            alert( 'Unexpected response from server.' );
+            // ── was: alert('Unexpected response...') ──────────────────────────
+            showModal( {
+                type    : 'error',
+                title   : 'Unexpected Response',
+                message : 'The server returned an unexpected response. Please check your error log.',
+            } );
             return;
         }
 
@@ -63,7 +175,7 @@
         response.results.forEach( function ( r ) {
             var data = r.data || {};
 
-            // ── Build author tags ─────────────────────────────────────────────
+            // ── Author tags ───────────────────────────────────────────────────
             var authorHtml = '—';
             if ( Array.isArray( data.author_names ) && data.author_names.length ) {
                 authorHtml = data.author_names
@@ -79,7 +191,8 @@
             // ── Title with edit link ──────────────────────────────────────────
             var title     = data.title || '—';
             var titleHtml = r.post_id
-                ? '<a href="' + BSImporter.edit_url + '?post=' + r.post_id + '&action=edit" target="_blank">'
+                ? '<a href="' + BSImporter.edit_url + '?post=' + r.post_id + '&action=edit"'
+                    + ' target="_blank" rel="noopener">'
                     + esc( title ) + ' <span style="opacity:.5">&#8599;</span></a>'
                 : esc( title );
 
@@ -99,7 +212,7 @@
             var statusHtml = '<span class="bs-badge ' + badgeClass + '">'
                 + badgeIcon + ' ' + cap( r.status ) + '</span>';
 
-            // ── Row ───────────────────────────────────────────────────────────
+            // ── Append row ────────────────────────────────────────────────────
             $tbody.append(
                 '<tr>'
                 + '<td class="cell-url"><a href="' + esc( r.url ) + '" target="_blank" rel="noopener">'
@@ -108,13 +221,13 @@
                 + '<td class="cell-authors">' + authorHtml + '</td>'
                 + '<td class="cell-publisher">' + publisherHtml + '</td>'
                 + '<td>' + statusHtml + '</td>'
-                + '<td style="font-size:12px;color:#6b7280">' + esc( r.message || '' ) + '</td>'
+                + '<td class="cell-note">' + esc( r.message || '' ) + '</td>'
                 + '</tr>'
             );
 
-            if ( r.status === 'imported' ) { imported++; }
-            else if ( r.status === 'skipped' ) { skipped++; }
-            else { errors++; }
+            if ( r.status === 'imported' )      { imported++; }
+            else if ( r.status === 'skipped' )  { skipped++;  }
+            else                                { errors++;   }
         } );
 
         $summary.text(
@@ -125,17 +238,31 @@
         $results.prop( 'hidden', false );
     }
 
-    // ── Error handler ─────────────────────────────────────────────────────────
+    // =========================================================================
+    // ERROR HANDLER
+    // =========================================================================
+
     function handleError( xhr ) {
         setLoading( false, '' );
-        var msg = 'Import request failed.';
+
+        var msg = 'The import request failed. Please check your server error log.';
         if ( xhr.responseJSON && xhr.responseJSON.message ) {
             msg = xhr.responseJSON.message;
+        } else if ( xhr.status ) {
+            msg = 'HTTP ' + xhr.status + ' — ' + ( xhr.statusText || 'Unknown error' );
         }
-        alert( 'Error: ' + msg );
+
+        // ── was: alert('Error: ' + msg) ───────────────────────────────────────
+        showModal( {
+            type    : 'error',
+            title   : 'Import Failed',
+            message : msg,
+        } );
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
 
     function setLoading( loading, progressText ) {
         $btn.prop( 'disabled', loading );
@@ -147,10 +274,7 @@
         $progress.text( progressText || '' );
     }
 
-    /**
-     * Parse textarea content into a clean array of valid Rokomari URLs.
-     * Strips blank lines and lines that don't start with http.
-     */
+    /** Parse textarea into clean array of URLs. */
     function parseUrls( raw ) {
         return raw
             .split( /\r?\n/ )
@@ -160,13 +284,13 @@
             } );
     }
 
-    /** HTML-escape a string to prevent XSS in dynamic table cells. */
+    /** HTML-escape to prevent XSS in dynamic cells. */
     function esc( str ) {
         return String( str )
-            .replace( /&/g, '&amp;' )
-            .replace( /</g, '&lt;' )
-            .replace( />/g, '&gt;' )
-            .replace( /"/g, '&quot;' );
+            .replace( /&/g,  '&amp;'  )
+            .replace( /</g,  '&lt;'   )
+            .replace( />/g,  '&gt;'   )
+            .replace( /"/g,  '&quot;' );
     }
 
     /** Capitalise first letter. */
@@ -174,7 +298,7 @@
         return str.charAt( 0 ).toUpperCase() + str.slice( 1 );
     }
 
-    /** Truncate a string and add ellipsis. */
+    /** Truncate with ellipsis. */
     function truncate( str, max ) {
         return str.length > max ? str.slice( 0, max ) + '\u2026' : str;
     }

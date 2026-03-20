@@ -2,7 +2,7 @@
    BookCircle — Rokomari Importer  (assets/css/importer.css)
    ========================================================================== */
 
-/* ── Page wrapper ─────────────────────────────────────────────────────────── */
+/* ── Page wrapper ────────────────────────────────────────────────────────── */
 .bs-import-wrap {
     max-width: 980px;
 }
@@ -160,12 +160,11 @@
     padding: 10px 12px !important;
 }
 
-/* Column widths */
 .bs-import-table .col-url       { width: 24%; }
 .bs-import-table .col-title     { width: 20%; }
 .bs-import-table .col-authors   { width: 18%; }
 .bs-import-table .col-publisher { width: 14%; }
-.bs-import-table .col-status    { width: 9%; }
+.bs-import-table .col-status    { width:  9%; }
 .bs-import-table .col-note      { width: 15%; }
 
 .bs-import-table td {
@@ -174,7 +173,6 @@
     word-break: break-word;
 }
 
-/* URL cell */
 .bs-import-table .cell-url {
     font-size: 11px;
     font-family: ui-monospace, monospace;
@@ -188,8 +186,6 @@
 .bs-import-table .cell-url a:hover {
     text-decoration: underline;
 }
-
-/* Title cell */
 .bs-import-table .cell-title a {
     font-weight: 600;
     color: #1e1e2d;
@@ -199,11 +195,12 @@
     color: #5B5EDE;
     text-decoration: underline;
 }
-
-/* Authors cell */
-.bs-import-table .cell-authors {
-    color: #374151;
+.bs-import-table .cell-note {
+    font-size: 12px;
+    color: #6b7280;
 }
+
+/* ── Author tags ─────────────────────────────────────────────────────────── */
 .bs-author-tag {
     display: inline-block;
     background: #eef0ff;
@@ -216,13 +213,7 @@
     white-space: nowrap;
 }
 
-/* Publisher cell */
-.bs-import-table .cell-publisher {
-    color: #374151;
-    font-size: 12px;
-}
-
-/* Status badges */
+/* ── Status badges ───────────────────────────────────────────────────────── */
 .bs-badge {
     display: inline-flex;
     align-items: center;
@@ -235,15 +226,188 @@
     letter-spacing: 0.03em;
     white-space: nowrap;
 }
-.bs-badge-imported {
-    background: #dcfce7;
-    color: #15803d;
+.bs-badge-imported { background: #dcfce7; color: #15803d; }
+.bs-badge-skipped  { background: #fef3c7; color: #92400e; }
+.bs-badge-error    { background: #fee2e2; color: #b91c1c; }
+
+
+/* ==========================================================================
+   MODAL
+   ========================================================================== */
+
+/*
+ * ROOT FIX — the overlay uses pointer-events:none when hidden so it can
+ * NEVER block clicks on the page (textarea, buttons, links) underneath.
+ * pointer-events are restored to auto only when .bs-modal-visible is added.
+ *
+ * We do NOT rely on [hidden] alone because:
+ *   1. The fade-out CSS transition keeps the element painted (opacity > 0)
+ *      for ~220ms after JS sets hidden, so it would block clicks during that
+ *      window.
+ *   2. WordPress admin scripts sometimes strip [hidden] in unexpected ways.
+ */
+
+/* ── Overlay / backdrop ──────────────────────────────────────────────────── */
+.bs-modal-overlay {
+    /* Layout */
+    position: fixed;
+    inset: 0;
+    z-index: 100100;              /* above WP admin bar (z-index: 99999)     */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* Backdrop */
+    background: rgba(15, 15, 30, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+
+    /* ── KEY FIX ──────────────────────────────────────────────────────────
+     * Hidden state: invisible AND non-interactive.
+     * pointer-events:none means the overlay never intercepts mouse / touch
+     * events when it is not open, so the page beneath stays fully clickable.
+     * -------------------------------------------------------------------- */
+    opacity: 0;
+    pointer-events: none;          /* ← blocks nothing when closed           */
+    visibility: hidden;            /* ← removed from tab order when closed   */
+    transition: opacity 0.2s ease, visibility 0.2s ease;
 }
-.bs-badge-skipped {
-    background: #fef3c7;
-    color: #92400e;
+
+/* Open state — added by JS: showModal() adds this class */
+.bs-modal-overlay.bs-modal-visible {
+    opacity: 1;
+    pointer-events: auto;          /* ← only interactive when open           */
+    visibility: visible;
 }
-.bs-badge-error {
-    background: #fee2e2;
-    color: #b91c1c;
-}1
+
+/* ── Modal box ───────────────────────────────────────────────────────────── */
+.bs-modal {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    margin: 16px;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22),
+                0 4px 16px rgba(0, 0, 0, 0.10);
+
+    /* Slide-up + scale entrance */
+    transform: translateY(20px) scale(0.96);
+    opacity: 0;
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity   0.2s ease;
+}
+.bs-modal-visible .bs-modal {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+/* ── Top colour bar ──────────────────────────────────────────────────────── */
+.bs-modal::before {
+    content: '';
+    display: block;
+    height: 4px;
+    border-radius: 14px 14px 0 0;
+    background: #5B5EDE;
+}
+.bs-modal--warning::before { background: #f59e0b; }
+.bs-modal--error::before   { background: #ef4444; }
+.bs-modal--success::before { background: #22c55e; }
+.bs-modal--info::before    { background: #5B5EDE; }
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.bs-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 22px 0;
+}
+
+.bs-modal-icon {
+    font-size: 22px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.bs-modal-title {
+    flex: 1;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.3;
+}
+
+/* ── × close button ──────────────────────────────────────────────────────── */
+.bs-modal-x {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    font-size: 20px;
+    line-height: 1;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s, color 0.15s;
+}
+.bs-modal-x:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+.bs-modal-body {
+    padding: 14px 22px 20px;
+}
+
+.bs-modal-message {
+    margin: 0;
+    font-size: 14px;
+    color: #4b5563;
+    line-height: 1.6;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.bs-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 22px 20px;
+}
+
+/* OK button — default (info / purple) */
+.bs-modal-ok-btn {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 7px 24px !important;
+    height: auto !important;
+    border-radius: 7px !important;
+    background: #5B5EDE !important;
+    border-color: #4b4ec9 !important;
+    color: #ffffff !important;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s !important;
+}
+.bs-modal-ok-btn:hover,
+.bs-modal-ok-btn:focus {
+    background: #4b4ec9 !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(91, 94, 222, 0.28) !important;
+}
+
+/* Warning — orange */
+.bs-modal--warning .bs-modal-ok-btn               { background: #f59e0b !important; border-color: #d97706 !important; }
+.bs-modal--warning .bs-modal-ok-btn:hover         { background: #d97706 !important; }
+
+/* Error — red */
+.bs-modal--error .bs-modal-ok-btn                 { background: #ef4444 !important; border-color: #dc2626 !important; }
+.bs-modal--error .bs-modal-ok-btn:hover           { background: #dc2626 !important; }
+
+/* Success — green */
+.bs-modal--success .bs-modal-ok-btn               { background: #22c55e !important; border-color: #16a34a !important; }
+.bs-modal--success .bs-modal-ok-btn:hover         { background: #16a34a !important; }

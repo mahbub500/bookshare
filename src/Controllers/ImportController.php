@@ -626,6 +626,25 @@ class ImportController {
                 </table>
             </div>
 
+        </div><!-- .bs-import-wrap -->
+
+        <!-- ── Modal overlay ──────────────────────────────────────────────────── -->
+        <div id="bs-modal-overlay" class="bs-modal-overlay" hidden>
+            <div class="bs-modal" role="dialog" aria-modal="true" aria-labelledby="bs-modal-title">
+                <div class="bs-modal-header">
+                    <span id="bs-modal-icon" class="bs-modal-icon"></span>
+                    <h3 id="bs-modal-title" class="bs-modal-title"></h3>
+                    <button id="bs-modal-x" class="bs-modal-x" aria-label="Close">&times;</button>
+                </div>
+                <div class="bs-modal-body">
+                    <p id="bs-modal-message" class="bs-modal-message"></p>
+                </div>
+                <div class="bs-modal-footer">
+                    <button id="bs-modal-ok" class="button button-primary bs-modal-ok-btn">
+                        <?php esc_html_e( 'OK', 'bookshare' ); ?>
+                    </button>
+                </div>
+            </div>
         </div>
         <?php
     }

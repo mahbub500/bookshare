@@ -55,30 +55,7 @@ final class Plugin {
 
     public function enqueue_assets(): void {
 
-        if ( $hook !== 'bookshare_page_bookshare-import' ) {
-            wp_enqueue_style(
-                'bs-importer',
-                BS_URL . 'assets/css/importer.css',
-                [],
-                BS_VERSION
-            );
 
-            wp_enqueue_script(
-                'bs-importer',
-                BS_URL . 'assets/js/importer.js',
-                [ 'jquery' ],
-                BS_VERSION,
-                true  // load in footer
-            );
-
-            wp_localize_script( 'bs-importer', 'BSImporter', [
-                'endpoint' => rest_url( 'bookshare/v1/import/rokomari' ),
-                'nonce'    => wp_create_nonce( 'wp_rest' ),
-                'edit_url' => admin_url( 'post.php' ),
-            ] );
-
-
-        }
 
         global $post;
         $has_shortcode = is_a( $post, 'WP_Post' ) && (
@@ -132,6 +109,36 @@ final class Plugin {
                 [],
                 BS_VERSION
             );
+        }
+
+        // var_dump( '<pre>' ); 
+        // var_dump( $screen );
+        // var_dump( '</pre>' ); 
+
+        if ( $screen->id === 'bookcircle_page_bookshare-import' ) {
+
+            wp_enqueue_style(
+                'bs-importer',
+                BS_URL . 'assets/css/importer.css',
+                [],
+                BS_VERSION
+            );
+
+            wp_enqueue_script(
+                'bs-importer',
+                BS_URL . 'assets/js/importer.js',
+                [ 'jquery' ],
+                BS_VERSION,
+                true  // load in footer
+            );
+
+            wp_localize_script( 'bs-importer', 'BSImporter', [
+                'endpoint' => rest_url( 'bookshare/v1/import/rokomari' ),
+                'nonce'    => wp_create_nonce( 'wp_rest' ),
+                'edit_url' => admin_url( 'post.php' ),
+            ] );
+
+
         }
 
         /*
